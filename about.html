@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>关于我 | 我的数字空间</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;font-family:Arial,"Microsoft YaHei",sans-serif;color:#f4f6ff;background:radial-gradient(circle at 80% 20%,#33256d,transparent 35%),radial-gradient(circle at 15% 80%,#123c62,transparent 35%),#080b16;overflow-x:hidden}
+nav{padding:24px 8%;display:flex;justify-content:space-between;border-bottom:1px solid #ffffff18}
+.logo{font-weight:bold;letter-spacing:2px}.logo span{color:#67e8f9}
+nav a{color:#b9c4e8;text-decoration:none}
+main{max-width:1000px;margin:auto;padding:100px 25px 70px}
+.label{color:#67e8f9;letter-spacing:3px;font-size:12px}
+h1{font-size:clamp(42px,8vw,78px);line-height:1.1;margin:22px 0}
+.gradient{background:linear-gradient(90deg,#67e8f9,#a78bfa,#f0abfc);color:transparent;background-clip:text}
+p{color:#aab4d0;line-height:1.9;max-width:600px}
+footer{padding:25px;text-align:center;color:#7180a8;font-size:12px}
+</style>
+</head>
+<body>
+<nav><div class="logo">MY<span>SPACE</span>_</div><a href="index.html">返回首页</a></nav>
+<main>
+<div class="label">关于我</div>
+<h1>你好，我是<br><span class="gradient">淡淡。</span></h1>
+<p>我正在学习人工智能、网页设计和数字创作，希望用技术和创意制作有趣的作品。</p>
+</main>
+<footer>© <span id="year"></span> MY SPACE · 用好奇心创造可能</footer>
+<script>document.getElementById('year').textContent=new Date().getFullYear();</script>
+</body>
+</html>
