@@ -6,7 +6,9 @@
 <title>更多的我 | 我的数字空间</title>
 <style>
 *{box-sizing:border-box}
-body{margin:0;min-height:100vh;font-family:Arial,"Microsoft YaHei",sans-serif;color:#f4f6ff;background-color:#080b16;background-image:linear-gradient(rgba(8,11,22,.18),rgba(8,11,22,.24)),url("images/pexels-pamanjoe-28225646.jpg");background-position:center;background-size:cover;overflow-x:hidden}
+body{margin:0;min-height:100vh;font-family:Arial,"Microsoft YaHei",sans-serif;color:#f4f6ff;background-color:#080b16;overflow-x:hidden;isolation:isolate}
+.background-video{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;z-index:-2}
+body::before{content:"";position:fixed;inset:0;background:rgba(8,11,22,.58);z-index:-1;pointer-events:none}
 nav{padding:24px 8%;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #ffffff18}
 .logo{font-weight:bold;letter-spacing:2px}.logo span{color:#67e8f9}
 nav div:last-child{display:flex;gap:22px}
@@ -25,6 +27,9 @@ footer{padding:25px;text-align:center;color:#7180a8;font-size:12px}
 </style>
 </head>
 <body>
+<video class="background-video" autoplay loop muted playsinline aria-hidden="true" tabindex="-1">
+  <source src="images/16937207_2160_3840_24fps.mp4" type="video/mp4">
+</video>
 <nav>
   <div class="logo">MY<span>SPACE</span>_</div>
   <div><a href="index.html">返回首页</a><a href="about.html">关于我</a></div>
@@ -40,6 +45,9 @@ footer{padding:25px;text-align:center;color:#7180a8;font-size:12px}
   </section>
 </main>
 <footer>© <span id="year"></span> MY SPACE · 用好奇心创造可能</footer>
-<script>document.getElementById('year').textContent=new Date().getFullYear();</script>
+<script>
+document.getElementById('year').textContent=new Date().getFullYear();
+document.querySelector('.background-video').addEventListener('error',event=>event.currentTarget.remove());
+</script>
 </body>
 </html>
