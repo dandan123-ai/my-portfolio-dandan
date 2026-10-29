@@ -81,7 +81,7 @@ function resizeStarfield(){
   canvas.width=Math.round(width*pixelRatio);
   canvas.height=Math.round(height*pixelRatio);
   context.setTransform(pixelRatio,0,0,pixelRatio,0,0);
-  const count=Math.max(40,Math.min(130,Math.round(width*height/14000)))*24;
+  const count=Math.max(40,Math.min(130,Math.round(width*height/14000)))*12;
   stars=Array.from({length:count},()=>({
     x:Math.random()*width,
     y:Math.random()*height,
@@ -134,6 +134,7 @@ function drawStarfield(time,animate){
         const neighbors=nearbyStars.get(`${cellX+offsetX},${cellY+offsetY}`)||[];
         for(const j of neighbors){
           if(j<=i) continue;
+          if((i+j)%2!==0) continue;
           const other=stars[j];
           const distance=Math.hypot(star.x-other.x,star.y-other.y);
           if(distance<connectionDistance){
