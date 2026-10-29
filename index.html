@@ -50,6 +50,8 @@ const context=canvas.getContext('2d');
 const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
 const desktopPointer=window.matchMedia('(hover: hover) and (pointer: fine) and (min-width: 768px)');
 let stars=[];
+let meteor=null;
+let meteorCountdown=0;
 let interactionParticles=[];
 let clickWaves=[];
 let lastPointer=null;
@@ -62,6 +64,10 @@ let width=0;
 let height=0;
 const maxInteractionParticles=64;
 
+function meteorInterval(){
+  return width<600?7000+Math.random()*5000:2800+Math.random()*3000;
+}
+
 function resizeStarfield(){
   const pixelRatio=Math.min(window.devicePixelRatio||1,2);
   width=window.innerWidth;
@@ -69,7 +75,7 @@ function resizeStarfield(){
   canvas.width=Math.round(width*pixelRatio);
   canvas.height=Math.round(height*pixelRatio);
   context.setTransform(pixelRatio,0,0,pixelRatio,0,0);
-  const count=Math.max(40,Math.min(130,Math.round(width*height/14000)))*3;
+  const count=Math.max(40,Math.min(130,Math.round(width*height/14000)))*6;
   stars=Array.from({length:count},()=>({
     x:Math.random()*width,
     y:Math.random()*height,
@@ -78,6 +84,7 @@ function resizeStarfield(){
     speed:(Math.random()-0.5)*0.012,
     drift:(Math.random()-0.5)*0.012
   }));
+  if(!meteorCountdown) meteorCountdown=meteorInterval();
   lastDrawTime=0;
   if(reducedMotion.matches) drawStarfield(0,false);
 }
@@ -141,7 +148,56 @@ function drawStarfield(time,animate){
   }
 
   drawScorpius(time,animate);
+  drawMeteor(animate,elapsed);
   drawInteractionEffects(time,animate);
+}
+
+function drawMeteor(animate,elapsed){
+  if(!animate){
+    meteor=null;
+    return;
+  }
+
+  if(!meteor){
+    meteorCountdown-=elapsed;
+    if(meteorCountdown<=0){
+      const mobile=width<600;
+      meteor={
+        elapsed:0,
+        duration:mobile?650:850,
+        startX:width+12,
+        startY:8+Math.random()*24,
+        distance:mobile?Math.min(width*0.32,130):Math.min(width*0.3,360),
+        tailLength:mobile?34:68
+      };
+      meteorCountdown=meteorInterval();
+    }
+  }
+  if(!meteor) return;
+
+  meteor.elapsed+=elapsed;
+  const progress=Math.min(meteor.elapsed/meteor.duration,1);
+  const x=meteor.startX-meteor.distance*progress;
+  const y=meteor.startY+meteor.distance*0.34*progress;
+  const tailX=x+meteor.tailLength;
+  const tailY=y-meteor.tailLength*0.34;
+  const opacity=Math.sin(Math.PI*progress)*(width<600?0.34:0.46);
+  const trail=context.createLinearGradient(tailX,tailY,x,y);
+  trail.addColorStop(0,'rgba(230,237,250,0)');
+  trail.addColorStop(1,`rgba(230,237,250,${opacity})`);
+
+  context.save();
+  context.strokeStyle=trail;
+  context.lineWidth=1.2;
+  context.shadowColor='rgba(230,237,250,0.28)';
+  context.shadowBlur=7;
+  context.beginPath();
+  context.moveTo(tailX,tailY);
+  context.lineTo(x,y);
+  context.stroke();
+  context.restore();
+
+  if(progress>=1) meteor=null;
 }
 
 function drawScorpius(time,animate){
