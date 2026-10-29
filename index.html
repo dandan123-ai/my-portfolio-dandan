@@ -52,8 +52,7 @@ const desktopPointer=window.matchMedia('(hover: hover) and (pointer: fine) and (
 let stars=[];
 let meteors=[];
 let meteorCountdown=0;
-let meteorWaveTarget=0;
-let meteorWaveSpawned=0;
+let meteorLimit=1;
 let interactionParticles=[];
 let clickWaves=[];
 let lastPointer=null;
@@ -67,11 +66,7 @@ let height=0;
 const maxInteractionParticles=64;
 
 function meteorInterval(){
-  return width<600?2400+Math.random()*1800:900+Math.random()*900;
-}
-
-function meteorWaveSize(){
-  return width<600?1+Math.floor(Math.random()*2):3+Math.floor(Math.random()*3);
+  return width<600?5500+Math.random()*3500:3200+Math.random()*3800;
 }
 
 function resizeStarfield(){
@@ -91,8 +86,7 @@ function resizeStarfield(){
     drift:(Math.random()-0.5)*0.012
   }));
   meteors=[];
-  meteorWaveTarget=meteorWaveSize();
-  meteorWaveSpawned=0;
+  meteorLimit=width<600?1:1+Math.floor(Math.random()*2);
   meteorCountdown=meteorInterval();
   lastDrawTime=0;
   if(reducedMotion.matches) drawStarfield(0,false);
@@ -169,87 +163,96 @@ function drawMeteor(animate,elapsed){
   }
 
   meteors=meteors.filter(meteor=>meteor.elapsed<meteor.duration);
-  if(meteorWaveSpawned>=meteorWaveTarget&&!meteors.length){
-    meteorWaveTarget=meteorWaveSize();
-    meteorWaveSpawned=0;
-    meteorCountdown=width<600?3500+Math.random()*2500:2500+Math.random()*3500;
-  }
-
-  if(meteorWaveSpawned<meteorWaveTarget){
+  if(meteors.length<meteorLimit){
     meteorCountdown-=elapsed;
     if(meteorCountdown<=0){
       const mobile=width<600;
-      const startX=-12-Math.random()*width*0.12;
-      const startY=document.querySelector('nav').getBoundingClientRect().bottom+24+Math.random()*Math.min(height*0.04,36);
-      const distance=Math.min(width*0.82,mobile?500:1250)*(0.82+Math.random()*0.18);
-      const drop=distance*(mobile?0.08+Math.random()*0.12:0.035+Math.random()*0.055);
-      const tailLength=(mobile?32:58)+Math.random()*(mobile?14:28);
-      const angle=drop/distance;
-      const contentElements=[...document.querySelectorAll('h1,main p,button,.card')];
-      let overlapsContent=false;
-      for(let step=0;step<=40&&!overlapsContent;step++){
-        const progress=step/40;
-        const headX=startX+distance*progress;
-        const headY=startY+drop*progress;
-        const tailX=headX-tailLength;
-        const tailY=headY-tailLength*angle;
-        overlapsContent=contentElements.some(element=>{
-          const rect=element.getBoundingClientRect();
-          const padding=12;
-          return [ [headX,headY],[tailX,tailY] ].some(([x,y])=>
-            x>=rect.left-padding&&x<=rect.right+padding
-            &&y>=rect.top-padding&&y<=rect.bottom+padding
-          );
+      const navBottom=document.querySelector('nav').getBoundingClientRect().bottom;
+      const contentElements=[...document.querySelectorAll('nav,h1,main p,button,.card')];
+      const contentRects=contentElements.map(element=>element.getBoundingClientRect());
+      let candidate=null;
+      for(let attempt=0;attempt<8&&!candidate;attempt++){
+        const startX=-Math.random()*width*0.12;
+        const startY=navBottom+12+Math.random()*Math.min(height*0.12,100);
+        const distance=width*(0.9+Math.random()*0.35);
+        const drop=height*(0.28+Math.random()*0.38);
+        const angle=drop/distance;
+        const tailLength=mobile?90+Math.random()*30:130+Math.random()*45;
+        let overlapsContent=false;
+        for(let step=0;step<=32&&!overlapsContent;step++){
+          const progress=step/32;
+          const headX=startX+distance*progress;
+          const headY=startY+drop*progress;
+          for(let tailStep=0;tailStep<=6&&!overlapsContent;tailStep++){
+            const tailProgress=tailStep/6;
+            const x=headX-tailLength*tailProgress;
+            const y=headY-tailLength*angle*tailProgress;
+            overlapsContent=contentRects.some(rect=>{
+              const padding=14;
+              return x>=rect.left-padding&&x<=rect.right+padding
+                &&y>=rect.top-padding&&y<=rect.bottom+padding;
+            });
+          }
+        }
+        const overlapsMeteor=meteors.some(meteor=>{
+          for(let step=0;step<=24;step++){
+            const progress=step/24;
+            const x=startX+distance*progress;
+            const y=startY+drop*progress;
+            const meteorX=meteor.startX+meteor.distance*progress;
+            const meteorY=meteor.startY+meteor.drop*progress;
+            if(Math.hypot(x-meteorX,y-meteorY)<(mobile?85:125)) return true;
+          }
+          return false;
         });
+        if(!overlapsContent&&!overlapsMeteor){
+          candidate={startX,startY,distance,drop,angle,tailLength};
+        }
       }
-      if(!overlapsContent){
+      if(candidate){
         meteors.push({
+          ...candidate,
           elapsed:0,
-          duration:(mobile?4600:5600)+Math.random()*(mobile?1200:2400),
-          startX,
-          startY,
-          distance,
-          drop,
-          tailLength,
-          angle
+          duration:(mobile?8500:10500)+Math.random()*(mobile?2500:4500),
+          segments:mobile?8:11
         });
-        meteorWaveSpawned++;
+        meteorLimit=mobile?1:1+Math.floor(Math.random()*2);
       }
-      meteorCountdown=overlapsContent?500+Math.random()*700:meteorInterval();
+      meteorCountdown=candidate?meteorInterval():900+Math.random()*900;
     }
   }
 
+  const mobile=width<600;
   for(const meteor of meteors){
     meteor.elapsed+=elapsed;
     const progress=Math.min(meteor.elapsed/meteor.duration,1);
     const x=meteor.startX+meteor.distance*progress;
     const y=meteor.startY+meteor.drop*progress;
-    const tailX=x-meteor.tailLength;
-    const tailY=y-meteor.tailLength*meteor.angle;
-    const fade=Math.min(1,progress*8,(1-progress)*5);
-    const opacity=fade*(width<600?0.32:0.4);
-    const trail=context.createLinearGradient(tailX,tailY,x,y);
-    trail.addColorStop(0,'rgba(230,237,250,0)');
-    trail.addColorStop(0.68,`rgba(168,125,255,${opacity*0.45})`);
-    trail.addColorStop(1,`rgba(218,190,255,${opacity})`);
-
+    const fade=Math.min(1,progress*7,(1-progress)*4);
+    const opacity=fade*(width<600?0.68:0.78);
     context.save();
-    context.strokeStyle=trail;
-    context.lineWidth=1.5;
-    context.shadowColor=`rgba(181,137,255,${opacity*0.65})`;
-    context.shadowBlur=10;
-    context.beginPath();
-    context.moveTo(tailX,tailY);
-    context.lineTo(x,y);
-    context.stroke();
+    context.shadowColor=`rgba(75,31,111,${opacity*0.8})`;
+    context.shadowBlur=13;
+    for(let i=meteor.segments;i>=1;i--){
+      const trailProgress=i/(meteor.segments+1);
+      const dotX=x-meteor.tailLength*trailProgress;
+      const dotY=y-meteor.tailLength*meteor.angle*trailProgress;
+      const dotOpacity=opacity*(1-trailProgress)*0.82;
+      const radius=(mobile?4.8:6.2)*(1-trailProgress*0.72);
+      context.fillStyle=`rgba(75,31,111,${dotOpacity})`;
+      context.beginPath();
+      context.arc(dotX,dotY,radius,0,Math.PI*2);
+      context.fill();
+    }
 
-    const head=context.createRadialGradient(x,y,0,x,y,7);
-    head.addColorStop(0,`rgba(245,232,255,${opacity})`);
-    head.addColorStop(0.35,`rgba(205,166,255,${opacity*0.8})`);
-    head.addColorStop(1,'rgba(168,125,255,0)');
+    const headRadius=mobile?11:14;
+    const head=context.createRadialGradient(x,y,1,x,y,headRadius);
+    head.addColorStop(0,`rgba(90,42,130,${opacity*0.95})`);
+    head.addColorStop(0.48,`rgba(75,31,111,${opacity*0.9})`);
+    head.addColorStop(1,'rgba(75,31,111,0)');
     context.fillStyle=head;
     context.beginPath();
-    context.arc(x,y,7,0,Math.PI*2);
+    context.arc(x,y,headRadius,0,Math.PI*2);
     context.fill();
     context.restore();
   }
