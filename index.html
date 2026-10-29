@@ -50,8 +50,10 @@ const context=canvas.getContext('2d');
 const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
 const desktopPointer=window.matchMedia('(hover: hover) and (pointer: fine) and (min-width: 768px)');
 let stars=[];
-let meteor=null;
+let meteors=[];
 let meteorCountdown=0;
+let meteorWaveTarget=0;
+let meteorWaveSpawned=0;
 let interactionParticles=[];
 let clickWaves=[];
 let lastPointer=null;
@@ -65,7 +67,11 @@ let height=0;
 const maxInteractionParticles=64;
 
 function meteorInterval(){
-  return width<600?7000+Math.random()*5000:2800+Math.random()*3000;
+  return width<600?2400+Math.random()*1800:900+Math.random()*900;
+}
+
+function meteorWaveSize(){
+  return width<600?1+Math.floor(Math.random()*2):3+Math.floor(Math.random()*3);
 }
 
 function resizeStarfield(){
@@ -84,7 +90,10 @@ function resizeStarfield(){
     speed:(Math.random()-0.5)*0.012,
     drift:(Math.random()-0.5)*0.012
   }));
-  if(!meteorCountdown) meteorCountdown=meteorInterval();
+  meteors=[];
+  meteorWaveTarget=meteorWaveSize();
+  meteorWaveSpawned=0;
+  meteorCountdown=meteorInterval();
   lastDrawTime=0;
   if(reducedMotion.matches) drawStarfield(0,false);
 }
@@ -154,71 +163,95 @@ function drawStarfield(time,animate){
 
 function drawMeteor(animate,elapsed){
   if(!animate){
-    meteor=null;
+    meteors=[];
     return;
   }
 
-  if(!meteor){
+  meteors=meteors.filter(meteor=>meteor.elapsed<meteor.duration);
+  if(meteorWaveSpawned>=meteorWaveTarget&&!meteors.length){
+    meteorWaveTarget=meteorWaveSize();
+    meteorWaveSpawned=0;
+    meteorCountdown=width<600?3500+Math.random()*2500:2500+Math.random()*3500;
+  }
+
+  if(meteorWaveSpawned<meteorWaveTarget){
     meteorCountdown-=elapsed;
     if(meteorCountdown<=0){
       const mobile=width<600;
-      const startX=-12;
-      const startY=document.querySelector('nav').getBoundingClientRect().bottom+8+Math.random()*8;
-      const distance=Math.min(width*0.8,mobile?480:1200);
-      const drop=distance*(mobile?0.16:0.065);
-      const tailLength=mobile?34:68;
-      const bounds={
-        left:startX-tailLength,
-        right:startX+distance,
-        top:startY-drop*(tailLength/distance),
-        bottom:startY+drop
-      };
-      const overlapsContent=[...document.querySelectorAll('nav,h1,main p,button,.card')]
-        .some(element=>{
+      const startX=-12-Math.random()*width*0.12;
+      const startY=document.querySelector('nav').getBoundingClientRect().bottom+24+Math.random()*Math.min(height*0.04,36);
+      const distance=Math.min(width*0.82,mobile?500:1250)*(0.82+Math.random()*0.18);
+      const drop=distance*(mobile?0.08+Math.random()*0.12:0.035+Math.random()*0.055);
+      const tailLength=(mobile?32:58)+Math.random()*(mobile?14:28);
+      const angle=drop/distance;
+      const contentElements=[...document.querySelectorAll('h1,main p,button,.card')];
+      let overlapsContent=false;
+      for(let step=0;step<=40&&!overlapsContent;step++){
+        const progress=step/40;
+        const headX=startX+distance*progress;
+        const headY=startY+drop*progress;
+        const tailX=headX-tailLength;
+        const tailY=headY-tailLength*angle;
+        overlapsContent=contentElements.some(element=>{
           const rect=element.getBoundingClientRect();
-          return bounds.left<rect.right&&bounds.right>rect.left
-            &&bounds.top<rect.bottom&&bounds.bottom>rect.top;
+          const padding=12;
+          return [ [headX,headY],[tailX,tailY] ].some(([x,y])=>
+            x>=rect.left-padding&&x<=rect.right+padding
+            &&y>=rect.top-padding&&y<=rect.bottom+padding
+          );
         });
+      }
       if(!overlapsContent){
-        meteor={
+        meteors.push({
           elapsed:0,
-          duration:mobile?650:1000,
+          duration:(mobile?4600:5600)+Math.random()*(mobile?1200:2400),
           startX,
           startY,
           distance,
           drop,
-          tailLength
-        };
+          tailLength,
+          angle
+        });
+        meteorWaveSpawned++;
       }
-      meteorCountdown=meteorInterval();
+      meteorCountdown=overlapsContent?500+Math.random()*700:meteorInterval();
     }
   }
-  if(!meteor) return;
 
-  meteor.elapsed+=elapsed;
-  const progress=Math.min(meteor.elapsed/meteor.duration,1);
-  const x=meteor.startX+meteor.distance*progress;
-  const y=meteor.startY+meteor.drop*progress;
-  const tailX=x-meteor.tailLength;
-  const tailY=y-meteor.drop*(meteor.tailLength/meteor.distance);
-  const opacity=Math.sin(Math.PI*progress)*(width<600?0.3:0.4);
-  const trail=context.createLinearGradient(tailX,tailY,x,y);
-  trail.addColorStop(0,'rgba(230,237,250,0)');
-  trail.addColorStop(0.7,`rgba(196,166,255,${opacity*0.55})`);
-  trail.addColorStop(1,`rgba(225,210,255,${opacity})`);
+  for(const meteor of meteors){
+    meteor.elapsed+=elapsed;
+    const progress=Math.min(meteor.elapsed/meteor.duration,1);
+    const x=meteor.startX+meteor.distance*progress;
+    const y=meteor.startY+meteor.drop*progress;
+    const tailX=x-meteor.tailLength;
+    const tailY=y-meteor.tailLength*meteor.angle;
+    const fade=Math.min(1,progress*8,(1-progress)*5);
+    const opacity=fade*(width<600?0.32:0.4);
+    const trail=context.createLinearGradient(tailX,tailY,x,y);
+    trail.addColorStop(0,'rgba(230,237,250,0)');
+    trail.addColorStop(0.68,`rgba(168,125,255,${opacity*0.45})`);
+    trail.addColorStop(1,`rgba(218,190,255,${opacity})`);
 
-  context.save();
-  context.strokeStyle=trail;
-  context.lineWidth=1.3;
-  context.shadowColor='rgba(196,166,255,0.3)';
-  context.shadowBlur=8;
-  context.beginPath();
-  context.moveTo(tailX,tailY);
-  context.lineTo(x,y);
-  context.stroke();
-  context.restore();
+    context.save();
+    context.strokeStyle=trail;
+    context.lineWidth=1.5;
+    context.shadowColor=`rgba(181,137,255,${opacity*0.65})`;
+    context.shadowBlur=10;
+    context.beginPath();
+    context.moveTo(tailX,tailY);
+    context.lineTo(x,y);
+    context.stroke();
 
-  if(progress>=1) meteor=null;
+    const head=context.createRadialGradient(x,y,0,x,y,7);
+    head.addColorStop(0,`rgba(245,232,255,${opacity})`);
+    head.addColorStop(0.35,`rgba(205,166,255,${opacity*0.8})`);
+    head.addColorStop(1,'rgba(168,125,255,0)');
+    context.fillStyle=head;
+    context.beginPath();
+    context.arc(x,y,7,0,Math.PI*2);
+    context.fill();
+    context.restore();
+  }
 }
 
 function drawScorpius(time,animate){
