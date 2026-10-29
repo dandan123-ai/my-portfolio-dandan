@@ -75,7 +75,7 @@ function resizeStarfield(){
   canvas.width=Math.round(width*pixelRatio);
   canvas.height=Math.round(height*pixelRatio);
   context.setTransform(pixelRatio,0,0,pixelRatio,0,0);
-  const count=Math.max(40,Math.min(130,Math.round(width*height/14000)))*12;
+  const count=Math.max(40,Math.min(130,Math.round(width*height/14000)))*24;
   stars=Array.from({length:count},()=>({
     x:Math.random()*width,
     y:Math.random()*height,
@@ -141,7 +141,7 @@ function drawStarfield(time,animate){
 
   for(const star of stars){
     const twinkle=animate?(Math.sin(time*0.0007+star.phase)+1)/2:0.5;
-    context.fillStyle=`rgba(235,242,255,${0.35+twinkle*0.55})`;
+    context.fillStyle=`rgba(235,242,255,${0.28+twinkle*0.45})`;
     context.beginPath();
     context.arc(star.x,star.y,star.radius,0,Math.PI*2);
     context.fill();
@@ -162,14 +162,34 @@ function drawMeteor(animate,elapsed){
     meteorCountdown-=elapsed;
     if(meteorCountdown<=0){
       const mobile=width<600;
-      meteor={
-        elapsed:0,
-        duration:mobile?650:850,
-        startX:width+12,
-        startY:8+Math.random()*24,
-        distance:mobile?Math.min(width*0.32,130):Math.min(width*0.3,360),
-        tailLength:mobile?34:68
+      const startX=-12;
+      const startY=document.querySelector('nav').getBoundingClientRect().bottom+8+Math.random()*8;
+      const distance=Math.min(width*0.8,mobile?480:1200);
+      const drop=distance*(mobile?0.16:0.065);
+      const tailLength=mobile?34:68;
+      const bounds={
+        left:startX-tailLength,
+        right:startX+distance,
+        top:startY-drop*(tailLength/distance),
+        bottom:startY+drop
       };
+      const overlapsContent=[...document.querySelectorAll('nav,h1,main p,button,.card')]
+        .some(element=>{
+          const rect=element.getBoundingClientRect();
+          return bounds.left<rect.right&&bounds.right>rect.left
+            &&bounds.top<rect.bottom&&bounds.bottom>rect.top;
+        });
+      if(!overlapsContent){
+        meteor={
+          elapsed:0,
+          duration:mobile?650:1000,
+          startX,
+          startY,
+          distance,
+          drop,
+          tailLength
+        };
+      }
       meteorCountdown=meteorInterval();
     }
   }
@@ -177,10 +197,10 @@ function drawMeteor(animate,elapsed){
 
   meteor.elapsed+=elapsed;
   const progress=Math.min(meteor.elapsed/meteor.duration,1);
-  const x=meteor.startX-meteor.distance*progress;
-  const y=meteor.startY+meteor.distance*0.34*progress;
-  const tailX=x+meteor.tailLength;
-  const tailY=y-meteor.tailLength*0.34;
+  const x=meteor.startX+meteor.distance*progress;
+  const y=meteor.startY+meteor.drop*progress;
+  const tailX=x-meteor.tailLength;
+  const tailY=y-meteor.drop*(meteor.tailLength/meteor.distance);
   const opacity=Math.sin(Math.PI*progress)*(width<600?0.3:0.4);
   const trail=context.createLinearGradient(tailX,tailY,x,y);
   trail.addColorStop(0,'rgba(230,237,250,0)');
@@ -351,7 +371,7 @@ function drawInteractionEffects(time,animate){
 function animateStarfield(time){
   frameId=0;
   if(document.hidden) return;
-  if(time-lastFrame>=33){
+  if(time-lastFrame>=(width<600?40:33)){
     lastFrame=time;
     drawStarfield(time,true);
   }
