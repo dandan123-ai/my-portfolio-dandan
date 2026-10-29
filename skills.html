@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>更多的我 | 我的数字空间</title>
+<title>我的数字空间</title>
 <style>
 *{box-sizing:border-box}
 body{margin:0;min-height:100vh;font-family:Arial,"Microsoft YaHei",sans-serif;color:#f4f6ff;background-color:#080b16;overflow-x:hidden;isolation:isolate}
@@ -14,16 +14,9 @@ nav{padding:24px 8%;display:flex;justify-content:space-between;align-items:cente
 nav div:last-child{display:flex;gap:22px}
 nav a{color:#b9c4e8;text-decoration:none}
 nav a:hover{color:#67e8f9}
-main{max-width:1000px;margin:auto;padding:100px 25px 70px}
-.label{color:#67e8f9;letter-spacing:3px;font-size:12px}
-h1{font-size:clamp(42px,8vw,78px);line-height:1.1;margin:22px 0}
-.gradient{background:linear-gradient(90deg,#67e8f9,#a78bfa,#f0abfc);color:transparent;background-clip:text}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:18px;margin-top:45px}
-.card{min-height:130px;padding:24px;display:flex;align-items:center;border:1px solid #8b9cff35;border-radius:18px;background:#ffffff09;backdrop-filter:blur(12px);transition:.3s}
-.card:hover{transform:translateY(-5px);border-color:#67e8f9}
-.card h2{margin:0;font-size:20px;font-weight:600}
-footer{padding:25px;text-align:center;color:#7180a8;font-size:12px}
-@media(max-width:480px){nav{padding:20px 6%}nav div:last-child{gap:14px}main{padding:72px 20px 55px}}
+main{min-height:calc(100vh - 73px);max-width:1000px;margin:auto;padding:40px 25px;display:grid;place-items:center}
+.content-area{width:100%;min-height:45vh;font-size:clamp(2rem,7vw,5rem);line-height:1.2}
+@media(max-width:480px){nav{padding:20px 6%}nav div:last-child{gap:14px}main{min-height:calc(100vh - 65px);padding:32px 20px}}
 </style>
 </head>
 <body>
@@ -34,19 +27,8 @@ footer{padding:25px;text-align:center;color:#7180a8;font-size:12px}
   <div class="logo">MY<span>SPACE</span>_</div>
   <div><a href="index.html">返回首页</a><a href="about.html">关于我</a></div>
 </nav>
-<main>
-  <div class="label">技能与兴趣</div>
-  <h1><span class="gradient">更多的我</span></h1>
-  <section class="cards" aria-label="我的技能与兴趣">
-    <article class="card"><h2>人工智能</h2></article>
-    <article class="card"><h2>网页设计</h2></article>
-    <article class="card"><h2>数字创作</h2></article>
-    <article class="card"><h2>创意写作</h2></article>
-  </section>
-</main>
-<footer>© <span id="year"></span> MY SPACE · 用好奇心创造可能</footer>
+<main><div class="content-area" aria-label="可填写内容的区域"></div></main>
 <script>
-document.getElementById('year').textContent=new Date().getFullYear();
 document.querySelector('.background-video').addEventListener('error',event=>event.currentTarget.remove());
 </script>
 </body>
