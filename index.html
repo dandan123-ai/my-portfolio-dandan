@@ -48,12 +48,19 @@ document.getElementById('year').textContent=new Date().getFullYear();
 const canvas=document.getElementById('starfield');
 const context=canvas.getContext('2d');
 const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
+const desktopPointer=window.matchMedia('(hover: hover) and (pointer: fine) and (min-width: 768px)');
 let stars=[];
+let interactionParticles=[];
+let clickWaves=[];
+let lastPointer=null;
+let pointerListenersEnabled=false;
 let frameId=0;
 let lastFrame=0;
 let lastDrawTime=0;
+let lastInteractionDrawTime=0;
 let width=0;
 let height=0;
+const maxInteractionParticles=64;
 
 function resizeStarfield(){
   const pixelRatio=Math.min(window.devicePixelRatio||1,2);
@@ -134,6 +141,7 @@ function drawStarfield(time,animate){
   }
 
   drawScorpius(time,animate);
+  drawInteractionEffects(time,animate);
 }
 
 function drawScorpius(time,animate){
@@ -176,6 +184,113 @@ function drawScorpius(time,animate){
   }
 }
 
+function addInteractionParticle(x,y,vx,vy,lifetime,color,opacity){
+  if(interactionParticles.length>=maxInteractionParticles) interactionParticles.shift();
+  interactionParticles.push({x,y,vx,vy,lifetime,remaining:lifetime,color,opacity,radius:Math.random()*0.8+0.55});
+}
+
+function handleMouseMove(event){
+  if(!lastPointer){
+    lastPointer={x:event.clientX,y:event.clientY};
+    return;
+  }
+  const dx=event.clientX-lastPointer.x;
+  const dy=event.clientY-lastPointer.y;
+  const distance=Math.hypot(dx,dy);
+  const steps=Math.min(5,Math.floor(distance/18));
+  if(!steps) return;
+  const colors=['190,220,255','232,239,248','205,195,245'];
+  for(let i=1;i<=steps;i++){
+    const progress=i/steps;
+    const x=lastPointer.x+dx*progress;
+    const y=lastPointer.y+dy*progress;
+    addInteractionParticle(
+      x+(Math.random()-0.5)*5,
+      y+(Math.random()-0.5)*5,
+      (Math.random()-0.5)*0.025,
+      (Math.random()-0.5)*0.025,
+      420+Math.random()*300,
+      colors[Math.floor(Math.random()*colors.length)],
+      0.42
+    );
+  }
+  lastPointer={x:event.clientX,y:event.clientY};
+}
+
+function handleMouseClick(event){
+  const colors=['190,220,255','232,239,248','205,195,245'];
+  for(let i=0;i<10;i++){
+    const angle=(Math.PI*2*i)/10+Math.random()*0.35;
+    const speed=0.025+Math.random()*0.035;
+    addInteractionParticle(
+      event.clientX,
+      event.clientY,
+      Math.cos(angle)*speed,
+      Math.sin(angle)*speed,
+      480+Math.random()*180,
+      colors[Math.floor(Math.random()*colors.length)],
+      0.5
+    );
+  }
+  if(clickWaves.length>=2) clickWaves.shift();
+  clickWaves.push({x:event.clientX,y:event.clientY,elapsed:0,lifetime:560});
+}
+
+function clearInteractionEffects(){
+  interactionParticles=[];
+  clickWaves=[];
+  lastPointer=null;
+}
+
+function updatePointerListeners(){
+  const shouldEnable=desktopPointer.matches&&!reducedMotion.matches;
+  if(shouldEnable===pointerListenersEnabled) return;
+  pointerListenersEnabled=shouldEnable;
+  if(shouldEnable){
+    window.addEventListener('mousemove',handleMouseMove,{passive:true});
+    window.addEventListener('click',handleMouseClick,{passive:true});
+  }else{
+    window.removeEventListener('mousemove',handleMouseMove);
+    window.removeEventListener('click',handleMouseClick);
+    clearInteractionEffects();
+  }
+}
+
+function drawInteractionEffects(time,animate){
+  if(!animate){
+    clearInteractionEffects();
+    lastInteractionDrawTime=0;
+    return;
+  }
+  const elapsed=lastInteractionDrawTime?Math.min(time-lastInteractionDrawTime,100):0;
+  lastInteractionDrawTime=time;
+
+  interactionParticles=interactionParticles.filter(particle=>{
+    particle.remaining-=elapsed;
+    particle.x+=particle.vx*elapsed;
+    particle.y+=particle.vy*elapsed;
+    if(particle.remaining<=0) return false;
+    const opacity=particle.opacity*(particle.remaining/particle.lifetime)**2;
+    context.fillStyle=`rgba(${particle.color},${opacity})`;
+    context.beginPath();
+    context.arc(particle.x,particle.y,particle.radius,0,Math.PI*2);
+    context.fill();
+    return true;
+  });
+
+  clickWaves=clickWaves.filter(wave=>{
+    wave.elapsed+=elapsed;
+    const progress=Math.min(wave.elapsed/wave.lifetime,1);
+    if(progress>=1) return false;
+    context.strokeStyle=`rgba(210,222,248,${0.2*(1-progress)})`;
+    context.lineWidth=0.8;
+    context.beginPath();
+    context.arc(wave.x,wave.y,4+progress*23,0,Math.PI*2);
+    context.stroke();
+    return true;
+  });
+}
+
 function animateStarfield(time){
   frameId=0;
   if(document.hidden) return;
@@ -200,14 +315,20 @@ function stopStarfield(){
 }
 
 resizeStarfield();
+updatePointerListeners();
 startStarfield();
 window.addEventListener('resize',resizeStarfield,{passive:true});
+desktopPointer.addEventListener('change',updatePointerListeners);
 document.addEventListener('visibilitychange',()=>{
-  if(document.hidden) stopStarfield();
-  else startStarfield();
+  if(document.hidden){
+    stopStarfield();
+    clearInteractionEffects();
+    lastInteractionDrawTime=0;
+  }else startStarfield();
 });
 reducedMotion.addEventListener('change',()=>{
   stopStarfield();
+  updatePointerListeners();
   drawStarfield(0,false);
   startStarfield();
 });
