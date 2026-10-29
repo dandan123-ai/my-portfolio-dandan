@@ -17,7 +17,9 @@ main{max-width:1000px;margin:auto;padding:90px 25px 80px}
 h1{font-size:clamp(40px,7vw,68px);line-height:1.1;margin:18px 0 14px}
 .intro{max-width:620px;color:#aab4d0;line-height:1.9;margin:0}
 .skills{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;margin-top:54px}
-.skill-card{min-height:220px;padding:30px;border:1px solid #8b9cff45;border-radius:20px;background:linear-gradient(145deg,#ffffff12,#ffffff06);backdrop-filter:blur(10px)}
+.skill-card{display:block;min-height:220px;padding:30px;border:1px solid #8b9cff45;border-radius:20px;background:linear-gradient(145deg,#ffffff12,#ffffff06);backdrop-filter:blur(10px);color:inherit;text-decoration:none;transition:transform .25s,border-color .25s,background .25s}
+.skill-card:hover{transform:translateY(-6px);border-color:#67e8f9;background:linear-gradient(145deg,#ffffff1c,#ffffff0a)}
+.skill-card:focus-visible{outline:2px solid #67e8f9;outline-offset:4px}
 .icon{display:grid;place-items:center;width:48px;height:48px;border:1px solid #67e8f955;border-radius:14px;color:#67e8f9;font-size:23px;margin-bottom:24px}
 h2{font-size:22px;margin:0 0 12px}
 .skill-card p{color:#aab4d0;line-height:1.8;margin:0}
@@ -34,16 +36,16 @@ h2{font-size:22px;margin:0 0 12px}
   <h1>技能与兴趣</h1>
   <p class="intro">把好奇心变成动手尝试的动力，在创造和观察中不断发现新的可能。</p>
   <section class="skills" aria-label="技能与兴趣卡片">
-    <article class="skill-card">
+    <a class="skill-card" href="skill.html">
       <div class="icon" aria-hidden="true">⌘</div>
       <h2>技能</h2>
       <p>喜欢用代码搭建网页与交互体验，把脑海里的点子一点点变成真实作品。</p>
-    </article>
-    <article class="skill-card">
+    </a>
+    <a class="skill-card" href="interests.html">
       <div class="icon" aria-hidden="true">✦</div>
       <h2>兴趣</h2>
       <p>从自然、文字和日常细节里寻找灵感，享受持续探索未知事物的过程。</p>
-    </article>
+    </a>
   </section>
 </main>
 </body>

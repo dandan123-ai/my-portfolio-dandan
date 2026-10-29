@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>我的兴趣</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;font-family:Arial,"Microsoft YaHei",sans-serif;color:#f4f6ff;background-color:#030406;background-image:radial-gradient(1px 1px at 12% 18%,#ffffffc9 99%,transparent),radial-gradient(1px 1px at 78% 24%,#ffffffa8 99%,transparent),radial-gradient(1px 1px at 45% 72%,#ffffffb5 99%,transparent),radial-gradient(2px 2px at 88% 82%,#ffffffa3 99%,transparent),radial-gradient(1px 1px at 26% 88%,#ffffffa0 99%,transparent),radial-gradient(1px 1px at 65% 48%,#ffffffa0 99%,transparent),url("images/pexels-ashford-marx-1565533-36710529.jpg");background-size:380px 320px,470px 390px,520px 430px,620px 510px,440px 370px,560px 460px,cover;background-position:0 0,0 0,0 0,0 0,0 0,0 0,center center;overflow-x:hidden}
+nav{padding:24px 8%;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #ffffff18}
+.logo{font-weight:bold;letter-spacing:2px}.logo span{color:#67e8f9}
+nav div:last-child{display:flex;gap:22px}
+nav a{color:#b9c4e8;text-decoration:none}
+nav a:hover{color:#67e8f9}
+main{max-width:1000px;margin:auto;padding:90px 25px 80px}
+.eyebrow{color:#67e8f9;letter-spacing:3px;font-size:12px}
+h1{font-size:clamp(40px,7vw,68px);line-height:1.1;margin:18px 0 14px}
+.intro{max-width:620px;color:#aab4d0;line-height:1.9;margin:0}
+.interest-list{display:grid;grid-template-columns:minmax(0,1fr);gap:22px;margin-top:54px}
+.interest-item{display:grid;grid-template-columns:110px 1fr;align-items:center;gap:28px;min-height:230px;padding:36px;border:1px solid #8b9cff45;border-radius:26px;background:linear-gradient(115deg,#ffffff14,#ffffff06);backdrop-filter:blur(10px)}
+.icon{display:grid;place-items:center;width:82px;height:82px;border:1px solid #c4a6ff66;border-radius:50%;color:#d8c6ff;font-size:34px;background:#a78bfa12}
+h2{font-size:26px;margin:0 0 12px}
+.interest-item p{color:#aab4d0;line-height:1.8;margin:0}
+@media(max-width:600px){nav{padding:20px 6%}nav div:last-child{gap:14px}main{padding:64px 20px}.interest-list{margin-top:36px}.interest-item{grid-template-columns:1fr;gap:20px;min-height:0;padding:26px}.icon{width:64px;height:64px;font-size:28px}}
+</style>
+</head>
+<body>
+<nav>
+  <div class="logo">MY<span>SPACE</span>_</div>
+  <div><a href="index.html">返回首页</a><a href="skills.html">返回技能与兴趣</a></div>
+</nav>
+<main>
+  <div class="eyebrow">MY INTERESTS</div>
+  <h1>我的兴趣</h1>
+  <p class="intro">留一点空间给喜欢的事，让日常保持新鲜。</p>
+  <section class="interest-list" aria-label="兴趣">
+    <article class="interest-item">
+      <div class="icon" aria-hidden="true">✦</div>
+      <div>
+        <h2>兴趣趣</h2>
+        <p>对新的事物保持好奇，在阅读与观察中收集灵感。</p>
+      </div>
+    </article>
+  </section>
+</main>
+</body>
+</html>
