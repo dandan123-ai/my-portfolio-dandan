@@ -50,8 +50,8 @@ const context=canvas.getContext('2d');
 const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
 const desktopPointer=window.matchMedia('(hover: hover) and (pointer: fine) and (min-width: 768px)');
 let stars=[];
-let meteor=null;
-let meteorWait=600;
+let meteors=[];
+let meteorWait=800;
 let nextMeteorIndex=0;
 let meteorSparks=[];
 let interactionParticles=[];
@@ -82,8 +82,8 @@ function resizeStarfield(){
     speed:(Math.random()-0.5)*0.012,
     drift:(Math.random()-0.5)*0.012
   }));
-  meteor=null;
-  meteorWait=400+Math.random()*600;
+  meteors=[];
+  meteorWait=800+Math.random()*900;
   meteorSparks=[];
   lastDrawTime=0;
   if(reducedMotion.matches) drawStarfield(0,false);
@@ -155,32 +155,32 @@ function drawStarfield(time,animate){
 
 function drawMeteor(animate,elapsed){
   if(animate){
-    if(!meteor){
+    if(meteors.length<2){
       meteorWait-=elapsed;
-      if(meteorWait<=0) meteor=createMeteor(nextMeteorIndex);
-    }
-
-    if(meteor){
-      meteor.elapsed+=elapsed;
-      if(meteor.elapsed>=meteor.duration){
-        meteor=null;
+      if(meteorWait<=0){
+        meteors.push(createMeteor(nextMeteorIndex));
         nextMeteorIndex=(nextMeteorIndex+1)%2;
-        meteorWait=3000+Math.random()*4000;
+        meteorWait=4200+Math.random()*2200;
       }
     }
+
+    for(const meteor of meteors){
+      meteor.elapsed+=elapsed;
+    }
+    meteors=meteors.filter(meteor=>meteor.elapsed<meteor.duration);
   }
 
-  if(meteor){
+  for(const meteor of meteors){
     const progress=Math.min(meteor.elapsed/meteor.duration,1);
     const easedProgress=progress+Math.sin(progress*Math.PI*2)*0.018;
     const head=meteorPoint(meteor,easedProgress);
     const tangent=meteorTangent(meteor,easedProgress);
     const angle=Math.atan2(tangent.y,tangent.x);
     const normal={x:-tangent.y,y:tangent.x};
-    const fadeIn=smoothstep(Math.min(progress/0.16,1));
-    const fadeOut=smoothstep(Math.min((1-progress)/0.19,1));
-    const flicker=0.9+Math.sin(meteor.elapsed*0.018+meteor.flickerPhase)*0.045
-      +Math.sin(meteor.elapsed*0.043+meteor.flickerPhase)*0.025;
+    const fadeIn=smoothstep(Math.min(progress/0.12,1));
+    const fadeOut=smoothstep(Math.min((1-progress)/0.16,1));
+    const flicker=0.88+Math.sin(meteor.elapsed*0.018+meteor.flickerPhase)*0.07
+      +Math.sin(meteor.elapsed*0.043+meteor.flickerPhase)*0.035;
     const opacity=fadeIn*fadeOut*flicker*meteor.brightness;
     const tailProgress=Math.min(progress,meteor.tailFraction);
     const tailPoints=[];
@@ -203,10 +203,10 @@ function drawMeteor(animate,elapsed){
     const tailStart=tailPoints[0];
     const tailEnd=tailPoints[tailPoints.length-1];
     const tailGradient=context.createLinearGradient(tailStart.x,tailStart.y,tailEnd.x,tailEnd.y);
-    tailGradient.addColorStop(0,'rgba(120,105,255,0)');
-    tailGradient.addColorStop(0.32,`rgba(${meteor.glowColor},${opacity*0.08})`);
-    tailGradient.addColorStop(0.72,`rgba(${meteor.color},${opacity*0.23})`);
-    tailGradient.addColorStop(1,`rgba(242,226,255,${opacity*0.9})`);
+    tailGradient.addColorStop(0,'rgba(190,205,235,0)');
+    tailGradient.addColorStop(0.35,`rgba(${meteor.glowColor},${opacity*0.025})`);
+    tailGradient.addColorStop(0.78,`rgba(${meteor.color},${opacity*0.12})`);
+    tailGradient.addColorStop(1,`rgba(242,246,255,${opacity*0.38})`);
 
     context.save();
     context.lineCap='round';
@@ -216,7 +216,7 @@ function drawMeteor(animate,elapsed){
     for(let i=0;i<tailPoints.length;i++){
       const point=tailPoints[i];
       const taper=i/(tailPoints.length-1);
-      const widthAtPoint=meteor.headSize*(0.06+0.92*Math.pow(taper,1.35))
+      const widthAtPoint=meteor.headSize*(0.025+0.4*Math.pow(taper,1.35))
         *(0.88+Math.sin(i*0.72+meteor.wobblePhase)*0.12);
       upperEdge.push({x:point.x+point.normal.x*widthAtPoint,y:point.y+point.normal.y*widthAtPoint});
       lowerEdge.push({x:point.x-point.normal.x*widthAtPoint,y:point.y-point.normal.y*widthAtPoint});
@@ -226,8 +226,8 @@ function drawMeteor(animate,elapsed){
     for(const point of upperEdge.slice(1)) context.lineTo(point.x,point.y);
     for(let i=lowerEdge.length-1;i>=0;i--) context.lineTo(lowerEdge[i].x,lowerEdge[i].y);
     context.closePath();
-    context.shadowColor=`rgba(${meteor.glowColor},${opacity*0.5})`;
-    context.shadowBlur=meteor.headSize*3;
+    context.shadowColor=`rgba(${meteor.glowColor},${opacity*0.16})`;
+    context.shadowBlur=meteor.headSize*1.1;
     context.fillStyle=tailGradient;
     context.fill();
 
@@ -239,16 +239,16 @@ function drawMeteor(animate,elapsed){
       context.quadraticCurveTo(tailPoints[i].x,tailPoints[i].y,midpointX,midpointY);
     }
     context.lineTo(tailEnd.x,tailEnd.y);
-    context.shadowColor=`rgba(${meteor.color},${opacity*0.8})`;
-    context.shadowBlur=meteor.headSize*4.5;
-    context.strokeStyle=tailGradient;
-    context.lineWidth=meteor.headSize*1.5;
-    context.stroke();
-
-    context.shadowBlur=meteor.headSize*2.2;
-    context.globalAlpha=0.72;
+    context.shadowColor=`rgba(${meteor.color},${opacity*0.18})`;
+    context.shadowBlur=meteor.headSize*1.4;
     context.strokeStyle=tailGradient;
     context.lineWidth=meteor.headSize*0.72;
+    context.stroke();
+
+    context.shadowBlur=meteor.headSize*0.8;
+    context.globalAlpha=0.72;
+    context.strokeStyle=tailGradient;
+    context.lineWidth=meteor.headSize*0.34;
     context.stroke();
     context.globalAlpha=1;
 
@@ -256,7 +256,7 @@ function drawMeteor(animate,elapsed){
       head.x-tangent.x*meteor.bodyLength,head.y-tangent.y*meteor.bodyLength,head.x,head.y
     );
     streakGradient.addColorStop(0,'rgba(255,255,255,0)');
-    streakGradient.addColorStop(0.48,`rgba(229,211,255,${opacity*0.68})`);
+    streakGradient.addColorStop(0.48,`rgba(229,235,255,${opacity*0.38})`);
     streakGradient.addColorStop(1,`rgba(255,255,255,${opacity})`);
     context.beginPath();
     context.moveTo(head.x-tangent.x*meteor.bodyLength,head.y-tangent.y*meteor.bodyLength);
@@ -265,32 +265,33 @@ function drawMeteor(animate,elapsed){
       head.y-tangent.y*meteor.bodyLength*0.42+normal.y*meteor.headSize*0.2,
       head.x,head.y
     );
-    context.shadowColor=`rgba(246,219,255,${opacity})`;
-    context.shadowBlur=meteor.headSize*2.5;
+    context.shadowColor=`rgba(226,235,255,${opacity*0.2})`;
+    context.shadowBlur=meteor.headSize*0.9;
     context.strokeStyle=streakGradient;
     context.lineWidth=meteor.headSize*0.48;
     context.stroke();
 
-    const glow=context.createRadialGradient(head.x,head.y,0,head.x,head.y,meteor.headSize*5.2);
-    glow.addColorStop(0,`rgba(255,244,255,${opacity*0.68})`);
-    glow.addColorStop(0.2,`rgba(${meteor.glowColor},${opacity*0.4})`);
-    glow.addColorStop(0.52,`rgba(${meteor.color},${opacity*0.27})`);
+    const glow=context.createRadialGradient(head.x,head.y,0,head.x,head.y,meteor.headSize*2.4);
+    glow.addColorStop(0,`rgba(255,250,255,${opacity*0.48})`);
+    glow.addColorStop(0.28,`rgba(${meteor.glowColor},${opacity*0.16})`);
+    glow.addColorStop(0.62,`rgba(${meteor.color},${opacity*0.08})`);
     glow.addColorStop(1,`rgba(${meteor.color},0)`);
-    context.shadowBlur=meteor.headSize*3;
+    context.shadowBlur=meteor.headSize*0.7;
     context.fillStyle=glow;
     context.beginPath();
-    context.arc(head.x,head.y,meteor.headSize*5.2,0,Math.PI*2);
+    context.arc(head.x,head.y,meteor.headSize*2.4,0,Math.PI*2);
     context.fill();
 
-    const core=context.createRadialGradient(head.x,head.y,0,head.x,head.y,meteor.headSize*1.35);
+    const coreRadius=Math.min(2.5,meteor.headSize*0.78);
+    const core=context.createRadialGradient(head.x,head.y,0,head.x,head.y,coreRadius);
     core.addColorStop(0,`rgba(255,255,255,${opacity})`);
-    core.addColorStop(0.35,`rgba(255,239,255,${opacity*0.96})`);
-    core.addColorStop(0.72,`rgba(${meteor.glowColor},${opacity*0.72})`);
+    core.addColorStop(0.55,`rgba(255,245,255,${opacity*0.88})`);
+    core.addColorStop(0.82,`rgba(${meteor.glowColor},${opacity*0.36})`);
     core.addColorStop(1,`rgba(${meteor.color},0)`);
-    context.shadowBlur=meteor.headSize*1.8;
+    context.shadowBlur=meteor.headSize*0.45;
     context.fillStyle=core;
     context.beginPath();
-    context.arc(head.x,head.y,meteor.headSize*1.35,0,Math.PI*2);
+    context.arc(head.x,head.y,coreRadius,0,Math.PI*2);
     context.fill();
 
     if(animate) emitMeteorSparks(meteor,head,tangent,normal,elapsed);
@@ -315,9 +316,9 @@ function createMeteor(index){
     x:end.x-Math.cos(angle+0.12)*lastControlDistance,
     y:end.y-Math.sin(angle+0.12)*lastControlDistance
   };
-  const headSize=(mobile?5.4:7.3)*(index===0?1:0.84)*(0.88+Math.random()*0.24);
-  const bodyLength=headSize*(1.8+Math.random()*0.7);
-  const tailLength=bodyLength*(8+Math.random()*6);
+  const headSize=(mobile?2.2:2.9)*(index===0?1:0.84)*(0.9+Math.random()*0.2);
+  const bodyLength=headSize*(1.5+Math.random()*0.35);
+  const tailLength=bodyLength*(5+Math.random()*3);
   const pathLength=Math.hypot(end.x-start.x,end.y-start.y);
   return{
     start,control1,control2,end,
@@ -330,7 +331,7 @@ function createMeteor(index){
     wobblePhase:Math.random()*Math.PI*2,
     sparks:0,
     elapsed:0,
-    duration:(mobile?6500:6000)+Math.random()*4000
+    duration:8000+Math.random()*4000
   };
 }
 
@@ -369,8 +370,8 @@ function emitMeteorSparks(meteor,head,tangent,normal,elapsed){
       y:head.y+normal.y*spread,
       vx:-tangent.x*speed+(Math.random()-0.5)*0.075,
       vy:-tangent.y*speed+(Math.random()-0.5)*0.075,
-      size:0.5+Math.random()*(width<600?1.1:1.6),
-      opacity:0.26+Math.random()*0.6,
+      size:0.5+Math.random()*0.5,
+      opacity:0.22+Math.random()*0.48,
       color:meteor.color,
       age:0,
       lifetime:450+Math.random()*900
@@ -391,7 +392,7 @@ function drawMeteorSparks(animate,elapsed){
     const alpha=spark.opacity*life*life*flicker;
     context.fillStyle=`rgba(${spark.color},${alpha})`;
     context.shadowColor=`rgba(${spark.color},${alpha})`;
-    context.shadowBlur=spark.size*3;
+    context.shadowBlur=spark.size*0.8;
     context.beginPath();
     context.arc(spark.x,spark.y,spark.size*(0.55+life*0.45),0,Math.PI*2);
     context.fill();
