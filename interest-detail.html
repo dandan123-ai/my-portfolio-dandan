@@ -23,6 +23,7 @@ nav a:hover{color:#67e8f9}
 #unlock-panel{position:fixed;left:18px;bottom:18px;z-index:5;padding:9px 11px;border:1px solid #ffffff20;border-radius:8px;background:rgba(125,125,125,.24);color:#c4c4c4;backdrop-filter:blur(8px)}
 #unlock-panel button,#unlock-panel input{font:inherit;color:#d0d0d0}
 #unlock-trigger,#unlock-submit{border:1px solid #ffffff24;border-radius:5px;background:rgba(140,140,140,.18);padding:6px 9px;cursor:pointer}
+#unlock-trigger{width:84px;height:32px;padding:0}
 #unlock-form{display:flex;gap:6px;align-items:center}
 #unlock-form[hidden]{display:none}
 #unlock-password{width:128px;border:1px solid #ffffff30;border-radius:5px;background:rgba(0,0,0,.38);padding:6px 8px;outline:none}
@@ -42,7 +43,7 @@ nav a:hover{color:#67e8f9}
   <section class="gallery" id="gallery" aria-label="图片轮播"></section>
 </main>
 <aside id="unlock-panel">
-  <button id="unlock-trigger" type="button">解锁图片</button>
+  <button id="unlock-trigger" type="button" aria-label="解锁图片"></button>
   <form id="unlock-form" hidden>
     <input id="unlock-password" type="password" inputmode="numeric" autocomplete="current-password" placeholder="输入密码" aria-label="输入密码" required>
     <button id="unlock-submit" type="submit">确认</button>
@@ -236,7 +237,6 @@ async function playSlideshow(key,firstBlobUrl){
       unlockError.hidden=false;
       unlockPanel.hidden=false;
       unlockForm.hidden=true;
-      unlockTrigger.textContent='重新解锁';
       unlockTrigger.hidden=false;
       break;
     }
@@ -271,7 +271,6 @@ unlockForm.addEventListener('submit',async event=>{
       unlockError.hidden=false;
       unlockPanel.hidden=false;
       unlockForm.hidden=true;
-      unlockTrigger.textContent='重新解锁';
       unlockTrigger.hidden=false;
     });
   }catch(error){
