@@ -58,7 +58,7 @@ function playKeySound(){
 
 function typeNextCharacter(){
   if(characterIndex>=characters.length){
-    window.setTimeout(()=>window.location.href='http://127.0.0.1:7811/index.html',2000);
+    window.setTimeout(()=>window.location.href='wheel/index.html',2000);
     return;
   }
   story.textContent+=characters[characterIndex];
@@ -71,3 +71,5 @@ window.setTimeout(typeNextCharacter,100);
 </script>
 </body>
 </html>
+
+

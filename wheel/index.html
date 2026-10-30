@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='none' stroke='%23e8c3cb' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='2.5' fill='%23b4687c'/%3E%3C/svg%3E" />
+<title>Dream Wheel · 黄金时刻花环摩天轮</title>
+<style>
+  :root{
+    --ink:#2a211c;
+    --ink-soft:#7c6a5c;
+    --panel:rgba(252,247,241,.80);
+    --panel-line:rgba(150,120,95,.18);
+    --accent:#b4687c;
+    --accent-soft:#e8c3cb;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; overflow:hidden; background:#9fc4e4; }
+  body{ font-family:"Inter","PingFang SC","Microsoft YaHei",system-ui,sans-serif; color:var(--ink); }
+  canvas{ display:block; }
+
+  /* ---------- control panel ---------- */
+  #panel{
+    position:fixed; top:24px; left:24px; width:286px; z-index:20;
+    padding:18px 18px 16px; border-radius:20px;
+    background:linear-gradient(160deg, rgba(255,252,248,.9), rgba(248,238,229,.78));
+    border:1px solid rgba(255,255,255,.75);
+    box-shadow:0 24px 60px rgba(60,70,95,.26), inset 0 1px 0 rgba(255,255,255,.95);
+    backdrop-filter:blur(20px) saturate(1.5);
+    -webkit-backdrop-filter:blur(20px) saturate(1.5);
+    user-select:none;
+    transition:opacity .4s ease, transform .4s ease;
+  }
+  .brand{ display:flex; align-items:center; gap:9px; }
+  .dot{ width:8px; height:8px; border-radius:50%; background:var(--accent);
+        box-shadow:0 0 0 4px rgba(180,104,124,.16), 0 0 14px rgba(180,104,124,.5); }
+  h1{ font-size:13px; letter-spacing:.22em; font-weight:800; margin:0; }
+  .sub{ font-size:10.5px; letter-spacing:.1em; color:var(--ink-soft); margin:4px 0 14px 17px; }
+
+  .row{ display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+  button{
+    font:inherit; font-size:11px; letter-spacing:.04em;
+    padding:8px 9px; border-radius:10px; cursor:pointer;
+    border:1px solid var(--panel-line);
+    background:linear-gradient(180deg,#fffdfa,#f4ebe1);
+    color:#4c3d33;
+    box-shadow:0 1px 2px rgba(90,70,55,.12);
+    transition:transform .12s ease, box-shadow .12s ease, background .15s ease, color .15s ease;
+  }
+  button:hover{ background:linear-gradient(180deg,#ffffff,#f9f0e7); }
+  button:active{ transform:translateY(1px); box-shadow:none; }
+  button.on{ background:linear-gradient(180deg,#e7c0c9,#d9aeb9); color:#592d3b; border-color:rgba(150,80,105,.4); }
+  .row button.wide{ grid-column:1 / -1; font-weight:700; letter-spacing:.08em; }
+
+  /* ---------- night theme (toggled on <body class="night">) ---------- */
+  body.night #panel{
+    background:linear-gradient(160deg, rgba(26,30,50,.92), rgba(13,17,32,.86));
+    border-color:rgba(140,160,230,.28);
+    color:#e9e7f4;
+    box-shadow:0 24px 70px rgba(0,0,0,.55), inset 0 1px 0 rgba(160,180,255,.22);
+  }
+  body.night #panel h1{ color:#f4f1ff; }
+  body.night #panel .sub,
+  body.night #panel .hint,
+  body.night #panel .slider-label,
+  body.night #panel .badge{ color:#98a3c9; }
+  body.night #panel .hint{ border-top-color:rgba(140,160,230,.22); }
+  body.night #panel .dot{ background:#ffd490; box-shadow:0 0 0 4px rgba(255,212,144,.15), 0 0 16px rgba(255,212,144,.7); }
+  body.night #panel button{
+    background:linear-gradient(180deg,#2b3352,#20263d);
+    color:#e6e3f4; border-color:rgba(140,160,230,.28);
+    box-shadow:0 1px 2px rgba(0,0,0,.35);
+  }
+  body.night #panel button:hover{ background:linear-gradient(180deg,#343d60,#262d47); }
+  body.night #panel button.on{ background:linear-gradient(180deg,#8f7bb4,#6f5f96); color:#fff; border-color:rgba(190,170,255,.5); }
+  body.night #panel input[type=range]{ background:linear-gradient(90deg,#ffd490 0%,#6f5f96 100%); }
+  body.night #hud{ color:rgba(210,220,255,.62); }
+
+  .slider-wrap{ margin-top:14px; }
+  .slider-label{ display:flex; justify-content:space-between; font-size:10px; letter-spacing:.1em; color:var(--ink-soft); margin-bottom:7px; }
+  input[type=range]{
+    width:100%; -webkit-appearance:none; appearance:none; height:3px; border-radius:3px;
+    background:linear-gradient(90deg,#c97e8f 0%,#eed6d5 100%); outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:14px; height:14px; border-radius:50%;
+    background:#fff; border:2px solid #c17d90; cursor:pointer;
+    box-shadow:0 1px 5px rgba(0,0,0,.22);
+  }
+  .hint{ margin-top:13px; font-size:10px; line-height:1.7; color:var(--ink-soft);
+         border-top:1px solid var(--panel-line); padding-top:10px; letter-spacing:.02em; }
+  .badge{ display:inline-block; margin-top:8px; font-size:9px; letter-spacing:.16em; color:#9b8472;
+          text-transform:uppercase; }
+
+  /* ---------- loading / error ---------- */
+  #loading{
+    position:fixed; inset:0; z-index:60; display:flex; flex-direction:column; gap:16px;
+    align-items:center; justify-content:center;
+    background:radial-gradient(120% 90% at 50% 20%, #dce9f4 0%, #eddfd2 55%, #d9c6b6 100%);
+    color:#6d5a4c; transition:opacity .9s ease;
+  }
+  #loading .mark{ font-size:16px; letter-spacing:.5em; font-weight:800; padding-left:.5em; }
+  #loading .bar{ width:150px; height:2px; background:rgba(120,90,70,.16); overflow:hidden; border-radius:2px; }
+  #loading .bar i{ display:block; width:40%; height:100%; background:#b4687c; border-radius:2px;
+    animation:load 1.2s ease-in-out infinite; }
+  @keyframes load{ 0%{ transform:translateX(-110%);} 100%{ transform:translateX(360%);} }
+  #loading.hide{ opacity:0; pointer-events:none; }
+  #err{
+    position:fixed; inset:0; z-index:70; display:none; padding:48px;
+    background:#fbf5ee; color:#7c2f2f; font-size:13px; line-height:1.8; white-space:pre-wrap;
+    overflow:auto;
+  }
+  #hud{
+    position:fixed; left:24px; bottom:20px; z-index:15;
+    font-size:9.5px; letter-spacing:.2em; color:rgba(255,252,246,.72);
+    text-transform:uppercase; pointer-events:none; text-shadow:0 1px 8px rgba(40,30,20,.4);
+  }
+  @media (max-width:760px){
+    #panel{ width:238px; top:14px; left:14px; padding:14px; }
+    #hud{ display:none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="panel">
+  <div class="brand"><span class="dot"></span><h1>DREAM WHEEL</h1></div>
+  <div class="sub">Golden Hour · Rosa Ferris</div>
+  <div class="row">
+    <button id="btnPause">暂停旋转</button>
+    <button id="btnReset">复位视角</button>
+    <button id="btnOrbit">自动环绕</button>
+    <button id="btnExplode">结构分解</button>
+    <button id="btnPetals" class="on">花瓣粒子</button>
+    <button id="btnFull">全屏</button>
+    <button id="btnNight" class="wide">🌙 切换夜景 · 烟花</button>
+  </div>
+  <div class="slider-wrap">
+    <div class="slider-label"><span>旋转角度</span><span id="angleOut">0°</span></div>
+    <input id="rot" type="range" min="0" max="360" value="0" step="0.5">
+  </div>
+  <div class="hint">拖拽旋转 · 滚轮缩放 · 右键平移</div>
+  <div class="badge">Three.js · r160 · realtime</div>
+</div>
+
+<div id="loading">
+  <div class="mark">DREAM WHEEL</div>
+  <div class="bar"><i></i></div>
+</div>
+<div id="err"></div>
+<div id="hud">Dream Wheel · golden hour rose ferris</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.js",
+    "three/addons/": "./vendor/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/OrbitControls.js';
+import {
+  TAU, R, HUB_Y, CAM_HOME, LOOK_HOME, SUN_DIR, SUN_POS, FLOWER_PALETTE,
+  makePRNG, rr, canvasTexture, getParam, MATS,
+} from './js/design.js';
+import { buildFerrisWheel } from './js/wheel.js';
+import { buildNight } from './js/night.js';
+
+const QUALITY = getParam('quality', 'high');
+const params = new URLSearchParams(location.search);
+const errBox = document.getElementById('err');
+function fatal(e) {
+  console.error(e);
+  errBox.style.display = 'block';
+  errBox.textContent = '场景初始化失败：' + (e && e.message ? e.message : e);
+  window.__APP_ERROR__ = String(e && e.stack ? e.stack : e);
+}
+
+/* ------------------------------------------------------------------ *
+ *  Renderer / scene / camera
+ * ------------------------------------------------------------------ */
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 2600);
+camera.position.copy(CAM_HOME);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.copy(LOOK_HOME);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.minDistance = 30;
+controls.maxDistance = 150;
+controls.minPolarAngle = Math.PI * 0.12;
+controls.maxPolarAngle = Math.PI * 0.62;
+controls.enablePan = true;
+controls.autoRotate = false;
+
+/* ------------------------------------------------------------------ *
+ *  Fallback environment (used only until / unless environment.js loads)
+ * ------------------------------------------------------------------ */
+function fallbackEnvironment() {
+  const geo = new THREE.SphereGeometry(900, 32, 20);
+  const mat = new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false,
+    uniforms: {
+      top: { value: new THREE.Color('#3f7fc4') },
+      mid: { value: new THREE.Color('#8fc3ea') },
+      bot: { value: new THREE.Color('#f6dcc4') },
+      sun: { value: SUN_DIR.clone() },
+    },
+    vertexShader: `varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+    fragmentShader: `
+      varying vec3 vDir; uniform vec3 top, mid, bot, sun;
+      void main(){
+        float h = clamp(vDir.y * 0.5 + 0.5, 0.0, 1.0);
+        vec3 c = mix(bot, mid, smoothstep(0.42, 0.60, h));
+        c = mix(c, top, smoothstep(0.60, 0.95, h));
+        float s = pow(max(dot(normalize(vDir), sun), 0.0), 260.0);
+        c += vec3(1.0, 0.92, 0.78) * s * 1.8;
+        gl_FragColor = vec4(c, 1.0);
+      }`,
+  });
+  scene.add(new THREE.Mesh(geo, mat));
+  scene.fog = new THREE.Fog('#efd9c8', 150, 620);
+
+  const hemi = new THREE.HemisphereLight('#9bc8ee', '#f0dccb', 0.85);
+  scene.add(hemi);
+
+  const sun = new THREE.DirectionalLight('#fff1dc', 2.6);
+  sun.position.copy(SUN_POS);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  const sc = sun.shadow.camera;
+  sc.left = -46; sc.right = 46; sc.top = 58; sc.bottom = -12; sc.near = 5; sc.far = 180;
+  sun.shadow.bias = -0.0005;
+  sun.shadow.normalBias = 0.03;
+  scene.add(sun, sun.target);
+
+  const kicker = new THREE.DirectionalLight('#ffd7e2', 0.65);
+  kicker.position.set(40, 20, -60);
+  scene.add(kicker);
+
+  const ground = new THREE.Mesh(
+    new THREE.CircleGeometry(340, 72),
+    new THREE.MeshStandardMaterial({ color: '#d9cdbd', roughness: 0.94, metalness: 0.0 })
+  );
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = -0.02;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  return { update() {}, sunDir: SUN_DIR.clone(), fallback: true };
+}
+
+/* ------------------------------------------------------------------ *
+ *  Modules: environment / roses / post (optional until teammates land)
+ * ------------------------------------------------------------------ */
+let env = fallbackEnvironment();
+try {
+  const mod = await import('./js/environment.js');
+  if (mod && typeof mod.buildEnvironment === 'function') {
+    scene.clear();
+    env = mod.buildEnvironment({ scene, renderer, quality: QUALITY });
+  }
+} catch (e) { console.warn('[env] using fallback:', e && e.message); }
+
+const wheel = buildFerrisWheel({ seed: 20261030 });
+scene.add(wheel.root);
+
+let roses = null;
+try {
+  const mod = await import('./js/roses.js');
+  if (mod && typeof mod.buildRoses === 'function') {
+    roses = mod.buildRoses({ quality: QUALITY });
+    wheel.wheelGroup.add(roses.rotating);
+    wheel.root.add(roses.static);
+  }
+} catch (e) { console.warn('[roses] not loaded:', e && e.message); }
+
+let post = null;
+try {
+  const mod = await import('./js/post.js');
+  if (mod && typeof mod.createPost === 'function') {
+    post = mod.createPost({ renderer, scene, camera, quality: QUALITY });
+  }
+} catch (e) { console.warn('[post] not loaded:', e && e.message); }
+
+// give asynchronous environment assets (HDRI + PMREM) a chance to finish before the first frame
+for (const piece of [env, post]) {
+  if (piece && piece.ready && typeof piece.ready.then === 'function') {
+    try { await piece.ready; } catch (e) { console.warn('[ready] failed:', e && e.message); }
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ *  Night mode: fireworks + night sky / moon / wheel lights
+ * ------------------------------------------------------------------ */
+let fireworks = null;
+try {
+  const mod = await import('./js/fireworks.js');
+  if (mod && typeof mod.createFireworks === 'function') {
+    fireworks = mod.createFireworks({ scene, camera, quality: QUALITY });
+  }
+} catch (e) { console.warn('[fireworks] not loaded:', e && e.message); }
+
+const night = buildNight({ scene, camera, renderer, wheel, env, post, fireworks, quality: QUALITY });
+
+/* ------------------------------------------------------------------ *
+ *  Floating petals
+ * ------------------------------------------------------------------ */
+function makePetalTexture() {
+  return canvasTexture(64, 64, (g, w, h) => {
+    g.clearRect(0, 0, w, h);
+    const grad = g.createRadialGradient(32, 30, 2, 32, 34, 30);
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(0.72, 'rgba(255,255,255,.85)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grad;
+    g.beginPath();
+    g.ellipse(32, 32, 22, 24, 0, 0, TAU);
+    g.fill();
+  });
+}
+
+const petals = (() => {
+  const COUNT = QUALITY === 'low' ? 110 : 190;
+  const tex = makePetalTexture();
+  const geo = new THREE.PlaneGeometry(0.28, 0.28);
+  const mat = new THREE.MeshBasicMaterial({
+    map: tex, transparent: true, depthWrite: false, opacity: 0.7,
+    side: THREE.DoubleSide, color: 0xffffff,
+  });
+  const inst = new THREE.InstancedMesh(geo, mat, COUNT);
+  inst.frustumCulled = false;
+  inst.renderOrder = 3;
+  const rng = makePRNG(424242);
+  const data = [];
+  const colorArr = FLOWER_PALETTE.flatMap((p) => Array(p.weight).fill(p.hex));
+  const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3();
+  const _z = new THREE.Vector3(0, 0, 1);
+
+  function seed(i, initial) {
+    const a = rng() * TAU;
+    const rad = R * (0.86 + rng() * 0.34);
+    data[i] = {
+      x: Math.cos(a) * rad,
+      y: initial ? HUB_Y + Math.sin(a) * rad : HUB_Y + rr(rng, -18, 22),
+      z: rr(rng, -8, 10),
+      vx: rr(rng, -0.25, 0.25),
+      vy: rr(rng, 0.28, 0.85),
+      vz: rr(rng, -0.12, 0.22),
+      rot: rng() * TAU,
+      vr: rr(rng, -1.4, 1.4),
+      sc: rr(rng, 0.6, 1.5),
+      life: 0,
+      max: rr(rng, 7, 14),
+    };
+  }
+  for (let i = 0; i < COUNT; i++) {
+    seed(i, true);
+    inst.setColorAt(i, new THREE.Color(colorArr[(rng() * colorArr.length) | 0]));
+  }
+  if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
+
+  function update(dt) {
+    for (let i = 0; i < COUNT; i++) {
+      const d = data[i];
+      d.life += dt;
+      d.x += d.vx * dt;
+      d.y += d.vy * dt;
+      d.z += d.vz * dt;
+      d.rot += d.vr * dt;
+      if (d.life > d.max || d.y > HUB_Y + R + 6) seed(i, false);
+      _p.set(d.x, d.y, d.z);
+      _q.setFromAxisAngle(_z, d.rot);
+      const k = Math.min(1, (d.max - d.life) / 1.4, d.life / 0.7) * d.sc;
+      _s.set(k, k, k);
+      _m.compose(_p, _q, _s);
+      inst.setMatrixAt(i, _m);
+    }
+    inst.instanceMatrix.needsUpdate = true;
+  }
+  scene.add(inst);
+  return { inst, update, setVisible(v) { inst.visible = v; } };
+})();
+
+/* ------------------------------------------------------------------ *
+ *  Atmosphere: sunlit pollen motes + distant birds
+ * ------------------------------------------------------------------ */
+const motes = (() => {
+  const COUNT = QUALITY === 'low' ? 70 : 150;
+  const rng = makePRNG(777);
+  const positions = new Float32Array(COUNT * 3);
+  const speeds = new Float32Array(COUNT);
+  for (let i = 0; i < COUNT; i++) {
+    const a = rng() * TAU;
+    const rad = R * (0.6 + rng() * 0.9);
+    positions[i * 3] = Math.cos(a) * rad;
+    positions[i * 3 + 1] = rr(rng, 2, 52);
+    positions[i * 3 + 2] = rr(rng, -16, 22);
+    speeds[i] = rr(rng, 0.15, 0.55);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const tex = canvasTexture(64, 64, (g, w, h) => {
+    const grad = g.createRadialGradient(32, 32, 0, 32, 32, 30);
+    grad.addColorStop(0, 'rgba(255,244,214,1)');
+    grad.addColorStop(0.4, 'rgba(255,238,200,.55)');
+    grad.addColorStop(1, 'rgba(255,238,200,0)');
+    g.fillStyle = grad;
+    g.beginPath(); g.arc(32, 32, 30, 0, TAU); g.fill();
+  });
+  const mat = new THREE.PointsMaterial({
+    map: tex, size: 0.38, sizeAttenuation: true, transparent: true,
+    opacity: 0.34, depthWrite: false, blending: THREE.AdditiveBlending,
+    color: 0xfff3d8,
+  });
+  const points = new THREE.Points(geo, mat);
+  points.frustumCulled = false;
+  points.renderOrder = 4;
+  scene.add(points);
+  const posAttr = geo.getAttribute('position');
+  return {
+    points,
+    update(dt) {
+      const arr = posAttr.array;
+      for (let i = 0; i < COUNT; i++) {
+        arr[i * 3 + 1] += speeds[i] * dt;
+        arr[i * 3] += Math.sin(elapsed * 0.2 + i) * 0.06 * dt;
+        if (arr[i * 3 + 1] > 56) arr[i * 3 + 1] = 2;
+      }
+      posAttr.needsUpdate = true;
+    },
+  };
+})();
+
+const birds = (() => {
+  const tex = canvasTexture(96, 48, (g) => {
+    g.clearRect(0, 0, 96, 48);
+    g.strokeStyle = 'rgba(70,58,48,0.9)';
+    g.lineWidth = 3.2;
+    g.lineCap = 'round';
+    g.beginPath();
+    g.moveTo(6, 30);
+    g.quadraticCurveTo(28, 8, 47, 26);
+    g.quadraticCurveTo(66, 8, 90, 30);
+    g.stroke();
+  });
+  const group = new THREE.Group();
+  group.name = 'birds';
+  const rng = makePRNG(2026);
+  const items = [];
+  for (let i = 0; i < 7; i++) {
+    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, color: 0x8f8479, opacity: 0.75 });
+    const sp = new THREE.Sprite(mat);
+    const radius = rr(rng, 70, 150);
+    const height = rr(rng, 28, 62);
+    sp.scale.set(rr(rng, 2.0, 3.6), 1.0, 1);
+    sp.userData = { radius, height, phase: rr(rng, 0, TAU), speed: rr(rng, 0.012, 0.028) * (rng() > 0.5 ? 1 : -1) };
+    group.add(sp);
+    items.push(sp);
+  }
+  scene.add(group);
+  return {
+    group,
+    update(dt) {
+      for (const sp of items) {
+        const u = sp.userData;
+        u.phase += u.speed * dt;
+        sp.position.set(Math.cos(u.phase) * u.radius, u.height + Math.sin(u.phase * 1.7) * 1.5, Math.sin(u.phase) * u.radius - 40);
+        sp.material.rotation = 0;
+      }
+    },
+  };
+})();
+
+
+/* ------------------------------------------------------------------ *
+ *  UI + interaction
+ * ------------------------------------------------------------------ */
+const $ = (id) => document.getElementById(id);
+const btnPause = $('btnPause'), btnReset = $('btnReset'), btnOrbit = $('btnOrbit');
+const btnExplode = $('btnExplode'), btnPetals = $('btnPetals'), btnFull = $('btnFull');
+const btnNight = $('btnNight');
+const rot = $('rot'), angleOut = $('angleOut');
+
+let wheelAngle = 0;
+let paused = false;
+let autoOrbit = false;
+let explodeCur = 0, explodeTarget = 0;
+let petalsOn = true;
+let cameraTween = null;
+let nightTarget = 0, nightCur = 0;
+const SPEED = 0.105;
+
+const initialAngle = parseFloat(getParam('angleDeg', '0')) || 0;
+wheelAngle = THREE.MathUtils.degToRad(initialAngle);
+if (initialAngle) { paused = true; btnPause.classList.add('on'); btnPause.textContent = '继续旋转'; }
+wheel.setAngle(wheelAngle);
+rot.value = String(((initialAngle % 360) + 360) % 360);
+
+btnPause.onclick = () => {
+  paused = !paused;
+  btnPause.classList.toggle('on', paused);
+  btnPause.textContent = paused ? '继续旋转' : '暂停旋转';
+};
+btnOrbit.onclick = () => {
+  autoOrbit = !autoOrbit;
+  btnOrbit.classList.toggle('on', autoOrbit);
+};
+btnExplode.onclick = () => {
+  explodeTarget = explodeTarget > 0.5 ? 0 : 1;
+  btnExplode.classList.toggle('on', explodeTarget > 0.5);
+};
+btnPetals.onclick = () => {
+  petalsOn = !petalsOn;
+  petals.setVisible(petalsOn);
+  btnPetals.classList.toggle('on', petalsOn);
+};
+btnFull.onclick = () => {
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+  else document.exitFullscreen?.();
+};
+btnReset.onclick = () => {
+  cameraTween = { t: 0, fromPos: camera.position.clone(), fromLook: controls.target.clone() };
+};
+rot.oninput = () => {
+  wheelAngle = THREE.MathUtils.degToRad(parseFloat(rot.value));
+  paused = true;
+  btnPause.classList.add('on');
+  btnPause.textContent = '继续旋转';
+};
+
+/* night-mode toggle: click once → day dissolves into a moonlit, firework night */
+function applyNightButtonState() {
+  const on = nightTarget > 0.5;
+  btnNight.classList.toggle('on', on);
+  btnNight.textContent = on ? '☀️ 返回白天' : '🌙 切换夜景 · 烟花';
+}
+btnNight.onclick = () => {
+  nightTarget = nightTarget > 0.5 ? 0 : 1;
+  applyNightButtonState();
+};
+// double-clicking the scene is a shortcut for the same day/night switch
+renderer.domElement.addEventListener('dblclick', () => {
+  nightTarget = nightTarget > 0.5 ? 0 : 1;
+  applyNightButtonState();
+});
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'n' || e.key === 'N') {
+    nightTarget = nightTarget > 0.5 ? 0 : 1;
+    applyNightButtonState();
+  }
+});
+
+if (getParam('ui', '1') === '0') $('panel').style.display = 'none';
+if (getParam('petals', '1') === '0') { petalsOn = false; petals.setVisible(false); btnPetals.classList.remove('on'); }
+if (getParam('explode', '0') === '1') { explodeTarget = 1; btnExplode.classList.add('on'); }
+
+/* direct night start for screenshots / deep links: ?night=1 (or 0..1 progress) */
+{
+  const nv = parseFloat(getParam('night', '0'));
+  if (!isNaN(nv) && nv > 0) {
+    nightTarget = nv > 0.5 ? 1 : 0;
+    nightCur = Math.min(1, Math.max(0, nv));
+    night.setProgress(nightCur);
+    applyNightButtonState();
+  }
+}
+
+/* optional camera override for QA screenshots */
+(function applyUrlCamera() {
+  const az = parseFloat(getParam('az', 'NaN'));
+  const el = parseFloat(getParam('el', 'NaN'));
+  if (isNaN(az) && isNaN(el)) return;
+  const dist = parseFloat(getParam('dist', String(CAM_HOME.distanceTo(LOOK_HOME))));
+  const azr = (isNaN(az) ? -20 : az) * Math.PI / 180;
+  const elr = (isNaN(el) ? 6 : el) * Math.PI / 180;
+  controls.target.set(0, parseFloat(getParam('targetY', String(LOOK_HOME.y))), 0);
+  camera.position.set(
+    controls.target.x + dist * Math.cos(elr) * Math.sin(azr),
+    controls.target.y + dist * Math.sin(elr),
+    controls.target.z + dist * Math.cos(elr) * Math.cos(azr)
+  );
+  camera.lookAt(controls.target);
+})();
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  post?.setSize?.(window.innerWidth, window.innerHeight);
+});
+
+/* ------------------------------------------------------------------ *
+ *  Main loop
+ * ------------------------------------------------------------------ */
+const clock = new THREE.Clock();
+let frames = 0;
+let elapsed = 0;
+const _camOff = new THREE.Vector3();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  elapsed += dt;
+
+  if (!paused) wheelAngle += dt * SPEED;
+  wheel.setAngle(wheelAngle);
+
+  explodeCur += (explodeTarget - explodeCur) * Math.min(1, dt * 4.0);
+  wheel.setExplode(explodeCur);
+  if (roses) {
+    roses.rotating.position.z = explodeCur * 6.0;
+    roses.update(wheelAngle, dt);
+  }
+
+  petals.update(dt);
+  motes.update(dt);
+  birds.update(dt);
+
+  // day ↔ night crossfade
+  if (Math.abs(nightTarget - nightCur) > 0.001) {
+    nightCur += (nightTarget - nightCur) * Math.min(1, dt * 1.9);
+    if (Math.abs(nightTarget - nightCur) < 0.002) nightCur = nightTarget;
+    night.setProgress(nightCur);
+  }
+  night.update(dt, elapsed);
+
+  if (env && env.update) env.update(dt, elapsed);
+
+  if (autoOrbit) {
+    _camOff.copy(camera.position).sub(controls.target);
+    _camOff.applyAxisAngle(new THREE.Vector3(0, 1, 0), dt * 0.07);
+    camera.position.copy(controls.target).add(_camOff);
+  }
+
+  if (cameraTween) {
+    cameraTween.t = Math.min(1, cameraTween.t + dt / 0.95);
+    const t = cameraTween.t;
+    const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    camera.position.lerpVectors(cameraTween.fromPos, CAM_HOME, e);
+    controls.target.lerpVectors(cameraTween.fromLook, LOOK_HOME, e);
+    if (cameraTween.t >= 1) cameraTween = null;
+  }
+
+  controls.update();
+
+  const deg = ((wheelAngle * 180 / Math.PI) % 360 + 360) % 360;
+  angleOut.textContent = deg.toFixed(0) + '°';
+  if (document.activeElement !== rot) rot.value = deg.toFixed(1);
+
+  if (post) post.render(dt);
+  else renderer.render(scene, camera);
+
+  frames++;
+  if (frames === 2) {
+    window.__APP_READY__ = true;
+    const loading = document.getElementById('loading');
+    loading.classList.add('hide');
+    setTimeout(() => loading.remove(), 1000);
+  }
+
+  window.__APP__ = {
+    THREE, renderer, scene, camera, controls, wheel, roses, env, post, petals, night, fireworks,
+    setAngle: (a) => { wheelAngle = a; wheel.setAngle(a); },
+    setExplode: (v) => { explodeTarget = v; },
+    setNight: (on) => { nightTarget = on ? 1 : 0; applyNightButtonState(); },
+    setNightProgress: (p) => { nightTarget = p; nightCur = p; night.setProgress(p); },
+    getState: () => ({
+      angle: wheelAngle, explode: explodeCur,
+      night: nightCur,
+      calls: renderer.info.render.calls, tris: renderer.info.render.triangles,
+      programs: renderer.info.programs ? renderer.info.programs.length : -1,
+      quality: QUALITY,
+    }),
+  };
+}
+
+try {
+  animate();
+} catch (e) {
+  fatal(e);
+}
+</script>
+</body>
+</html>
