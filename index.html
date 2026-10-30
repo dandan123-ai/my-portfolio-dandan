@@ -50,9 +50,7 @@ const context=canvas.getContext('2d');
 const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
 const desktopPointer=window.matchMedia('(hover: hover) and (pointer: fine) and (min-width: 768px)');
 let stars=[];
-let meteors=[];
-let meteorCountdown=0;
-let meteorLimit=1;
+let meteorClock=0;
 let interactionParticles=[];
 let clickWaves=[];
 let lastPointer=null;
@@ -64,10 +62,6 @@ let lastInteractionDrawTime=0;
 let width=0;
 let height=0;
 const maxInteractionParticles=64;
-
-function meteorInterval(){
-  return width<600?5500+Math.random()*3500:3200+Math.random()*3800;
-}
 
 function resizeStarfield(){
   const pixelRatio=Math.min(window.devicePixelRatio||1,2);
@@ -85,9 +79,7 @@ function resizeStarfield(){
     speed:(Math.random()-0.5)*0.012,
     drift:(Math.random()-0.5)*0.012
   }));
-  meteors=[];
-  meteorLimit=width<600?1:1+Math.floor(Math.random()*2);
-  meteorCountdown=meteorInterval();
+  meteorClock=0;
   lastDrawTime=0;
   if(reducedMotion.matches) drawStarfield(0,false);
 }
@@ -157,89 +149,37 @@ function drawStarfield(time,animate){
 }
 
 function drawMeteor(animate,elapsed){
-  if(!animate){
-    meteors=[];
-    return;
-  }
+  if(!animate) return;
 
-  meteors=meteors.filter(meteor=>meteor.elapsed<meteor.duration);
-  if(meteors.length<meteorLimit){
-    meteorCountdown-=elapsed;
-    if(meteorCountdown<=0){
-      const mobile=width<600;
-      const navBottom=document.querySelector('nav').getBoundingClientRect().bottom;
-      const contentElements=[...document.querySelectorAll('nav,h1,main p,button,.card')];
-      const contentRects=contentElements.map(element=>element.getBoundingClientRect());
-      let candidate=null;
-      for(let attempt=0;attempt<8&&!candidate;attempt++){
-        const startX=-Math.random()*width*0.12;
-        const startY=navBottom+12+Math.random()*Math.min(height*0.12,100);
-        const distance=width*(0.9+Math.random()*0.35);
-        const drop=height*(0.28+Math.random()*0.38);
-        const angle=drop/distance;
-        const tailLength=mobile?90+Math.random()*30:130+Math.random()*45;
-        let overlapsContent=false;
-        for(let step=0;step<=32&&!overlapsContent;step++){
-          const progress=step/32;
-          const headX=startX+distance*progress;
-          const headY=startY+drop*progress;
-          for(let tailStep=0;tailStep<=6&&!overlapsContent;tailStep++){
-            const tailProgress=tailStep/6;
-            const x=headX-tailLength*tailProgress;
-            const y=headY-tailLength*angle*tailProgress;
-            overlapsContent=contentRects.some(rect=>{
-              const padding=14;
-              return x>=rect.left-padding&&x<=rect.right+padding
-                &&y>=rect.top-padding&&y<=rect.bottom+padding;
-            });
-          }
-        }
-        const overlapsMeteor=meteors.some(meteor=>{
-          for(let step=0;step<=24;step++){
-            const progress=step/24;
-            const x=startX+distance*progress;
-            const y=startY+drop*progress;
-            const meteorX=meteor.startX+meteor.distance*progress;
-            const meteorY=meteor.startY+meteor.drop*progress;
-            if(Math.hypot(x-meteorX,y-meteorY)<(mobile?85:125)) return true;
-          }
-          return false;
-        });
-        if(!overlapsContent&&!overlapsMeteor){
-          candidate={startX,startY,distance,drop,angle,tailLength};
-        }
-      }
-      if(candidate){
-        meteors.push({
-          ...candidate,
-          elapsed:0,
-          duration:(mobile?8500:10500)+Math.random()*(mobile?2500:4500),
-          segments:mobile?8:11
-        });
-        meteorLimit=mobile?1:1+Math.floor(Math.random()*2);
-      }
-      meteorCountdown=candidate?meteorInterval():900+Math.random()*900;
-    }
-  }
-
+  const cycle=4600;
+  const duration=2100;
+  const stagger=2300;
+  meteorClock=(meteorClock+elapsed)%cycle;
   const mobile=width<600;
-  for(const meteor of meteors){
-    meteor.elapsed+=elapsed;
-    const progress=Math.min(meteor.elapsed/meteor.duration,1);
-    const x=meteor.startX+meteor.distance*progress;
-    const y=meteor.startY+meteor.drop*progress;
-    const fade=Math.min(1,progress*7,(1-progress)*4);
+  for(let index=0;index<2;index++){
+    const phase=(meteorClock+index*stagger)%cycle;
+    if(phase>=duration) continue;
+    const progress=phase/duration;
+    const startX=-width*0.08;
+    const startY=height*(index===0?0.04:0.22);
+    const distance=width*1.16;
+    const drop=height*0.82;
+    const angle=drop/distance;
+    const tailLength=mobile?95:140;
+    const x=startX+distance*progress;
+    const y=startY+drop*progress;
+    const fade=Math.min(1,progress*8,(1-progress)*5);
     const opacity=fade*(width<600?0.68:0.78);
     context.save();
-    context.shadowColor=`rgba(75,31,111,${opacity*0.8})`;
-    context.shadowBlur=13;
-    for(let i=meteor.segments;i>=1;i--){
-      const trailProgress=i/(meteor.segments+1);
-      const dotX=x-meteor.tailLength*trailProgress;
-      const dotY=y-meteor.tailLength*meteor.angle*trailProgress;
+    context.shadowColor=`rgba(190,95,255,${opacity})`;
+    context.shadowBlur=18;
+    for(let i=11;i>=1;i--){
+      const trailProgress=i/12;
+      const dotX=x-tailLength*trailProgress;
+      const dotY=y-tailLength*angle*trailProgress;
       const dotOpacity=opacity*(1-trailProgress)*0.82;
       const radius=(mobile?4.8:6.2)*(1-trailProgress*0.72);
-      context.fillStyle=`rgba(75,31,111,${dotOpacity})`;
+      context.fillStyle=`rgba(190,95,255,${dotOpacity})`;
       context.beginPath();
       context.arc(dotX,dotY,radius,0,Math.PI*2);
       context.fill();
@@ -247,9 +187,9 @@ function drawMeteor(animate,elapsed){
 
     const headRadius=mobile?11:14;
     const head=context.createRadialGradient(x,y,1,x,y,headRadius);
-    head.addColorStop(0,`rgba(90,42,130,${opacity*0.95})`);
-    head.addColorStop(0.48,`rgba(75,31,111,${opacity*0.9})`);
-    head.addColorStop(1,'rgba(75,31,111,0)');
+    head.addColorStop(0,`rgba(245,220,255,${opacity})`);
+    head.addColorStop(0.42,`rgba(205,125,255,${opacity*0.95})`);
+    head.addColorStop(1,'rgba(165,75,255,0)');
     context.fillStyle=head;
     context.beginPath();
     context.arc(x,y,headRadius,0,Math.PI*2);
