@@ -39,12 +39,45 @@ footer{padding:25px;text-align:center;color:#7180a8;font-size:12px}
 <section class="cards" id="projects">
 <a class="card" href="about.html"><div>✦ 关于我</div></a>
 <a class="card" href="skills.html"><div>⌘ 技能与兴趣</div></a>
-<a class="card project-card" href="http://127.0.0.1:7811/index.html"><div>◈ 我的项目</div></a>
+<a class="card project-card" href="transition.html"><div>◈ 我的项目</div></a>
 </section>
 </main>
 <footer>© <span id="year"></span> MY SPACE · 用好奇心创造可能</footer>
 <script>
 document.getElementById('year').textContent=new Date().getFullYear();
+
+const projectCard=document.querySelector('.project-card');
+projectCard.addEventListener('click',event=>{
+  event.preventDefault();
+  try{
+    const AudioContextConstructor=window.AudioContext||window.webkitAudioContext;
+    if(AudioContextConstructor){
+      const audioContext=new AudioContextConstructor();
+      const playEntryKeySound=()=>{
+        if(audioContext.state!=='running') return;
+        const oscillator=audioContext.createOscillator();
+        const gain=audioContext.createGain();
+        const now=audioContext.currentTime;
+        oscillator.type='triangle';
+        oscillator.frequency.value=650+Math.random()*300;
+        gain.gain.setValueAtTime(0.018,now);
+        gain.gain.exponentialRampToValueAtTime(0.0001,now+0.025);
+        oscillator.connect(gain);
+        gain.connect(audioContext.destination);
+        oscillator.start(now);
+        oscillator.stop(now+0.025);
+      };
+      if(audioContext.state==='suspended'){
+        audioContext.resume().then(playEntryKeySound).catch(error=>{
+          console.warn('Keyboard sound is unavailable.',error);
+        });
+      }else playEntryKeySound();
+    }
+  }catch(error){
+    console.warn('Keyboard sound is unavailable.',error);
+  }
+  window.setTimeout(()=>window.location.href=projectCard.href,40);
+});
 
 const canvas=document.getElementById('starfield');
 const context=canvas.getContext('2d');

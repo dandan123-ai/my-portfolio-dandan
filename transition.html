@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title></title>
+<style>
+*{box-sizing:border-box}
+html,body{width:100%;min-height:100%;margin:0}
+body{min-height:100vh;display:grid;place-items:center;padding:24px;background:#000000;color:#ffffff;font-family:Arial,"Microsoft YaHei",sans-serif}
+p{max-width:900px;margin:0;color:#ffffff;text-align:center;font-size:clamp(18px,3vw,24px);line-height:1.9;overflow-wrap:anywhere}
+</style>
+</head>
+<body>
+<p id="story" aria-live="polite"></p>
+<script>
+const text='每个人心里面都装了个摩天轮，这件事装进这个仓里面，那个事装到那个仓里面，酸甜苦辣，各式各样，有的精彩瑰丽，有的糟糕拙劣，但是他们都会被埋上灰尘，在以后的以后，在一个偶然的瞬间，转到你的面前，它们的名字，叫做“回忆”';
+const story=document.getElementById('story');
+const characters=Array.from(text);
+let characterIndex=0;
+let audioContext=null;
+
+try{
+  const AudioContextConstructor=window.AudioContext||window.webkitAudioContext;
+  if(AudioContextConstructor){
+    audioContext=new AudioContextConstructor();
+    if(audioContext.state==='suspended'){
+      audioContext.resume().catch(error=>{
+        console.warn('Keyboard sound is unavailable.',error);
+        audioContext=null;
+      });
+    }
+  }
+}catch(error){
+  console.warn('Keyboard sound is unavailable.',error);
+  audioContext=null;
+}
+
+function playKeySound(){
+  if(!audioContext||audioContext.state!=='running') return;
+  try{
+    const oscillator=audioContext.createOscillator();
+    const gain=audioContext.createGain();
+    const now=audioContext.currentTime;
+    oscillator.type='triangle';
+    oscillator.frequency.value=620+Math.random()*420;
+    gain.gain.setValueAtTime(0.016,now);
+    gain.gain.exponentialRampToValueAtTime(0.0001,now+0.022);
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.start(now);
+    oscillator.stop(now+0.022);
+  }catch(error){
+    console.warn('Keyboard sound is unavailable.',error);
+    audioContext=null;
+  }
+}
+
+function typeNextCharacter(){
+  if(characterIndex>=characters.length){
+    window.setTimeout(()=>window.location.href='http://127.0.0.1:7811/index.html',2000);
+    return;
+  }
+  story.textContent+=characters[characterIndex];
+  playKeySound();
+  characterIndex++;
+  window.setTimeout(typeNextCharacter,100+Math.random()*41);
+}
+
+window.setTimeout(typeNextCharacter,100);
+</script>
+</body>
+</html>
