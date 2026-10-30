@@ -50,29 +50,13 @@ nav a:hover{color:#67e8f9}
   <p id="unlock-error" role="status" hidden></p>
 </aside>
 <script>
-const imageNames=[
-  '152991718146e091d109cec0a660b97f.jpg',
-  '1b4a1f15f17c967f017e84b689fa61d1.jpg',
-  '256396a80a2280706b6d1a426e9cdf06.jpg',
-  '2c4359ec3ba191de6c0e6d85ba7b4697.jpg',
-  '37c96190fc4dc84e32e30d3e59d034f2.jpg',
-  '5ad307c437ce046b600bf8e77d2ba2ca.jpg',
-  '69a10dad4f78e3ad333ca2256cc88804.jpg',
-  '69b6019f8b4a0ce7f5baef0a5623d7e5.jpg',
-  '87d4230eac938fbd25ad71c7cb92fb13.jpg',
-  'a5d21ac101465c73c1cfd1b8951b0aca.jpg',
-  'bb1996457b18d4c6e79d6c6222532380.jpg',
-  'c08697adf61151585d51f641d8aabfa9.jpg',
-  'c93504572ee36df4f831821a7b419f32.jpg',
-  'e9dac5d228542a429f22473f4ca2c299.jpg',
-  'ec293f29179bb6d7d06d38955c4c9ad0.jpg',
-  'f4e30b551da92982d48067f46157d066.jpg'
-];
-const imageDirectory='111/图片22/';
-const images=imageNames.map(name=>({
-  encrypted:`${imageDirectory}${name}.enc`,
-  preview:`${imageDirectory}previews/${name}.preview.jpg`
-}));
+const images=Array.from({length:16},(_,index)=>{
+  const name=`image-${String(index+1).padStart(2,'0')}`;
+  return{
+    encrypted:`images/${name}.jpg.enc`,
+    preview:`images/${name}-preview.jpg`
+  };
+});
 const salt=Uint8Array.from(atob('+k3qyafomgz8++P2uq2I5Q=='),character=>character.charCodeAt(0));
 const gallery=document.getElementById('gallery');
 const unlockPanel=document.getElementById('unlock-panel');
@@ -96,6 +80,9 @@ function makeSlide(source,type){
   image.alt='';
   image.draggable=false;
   gallery.append(image);
+  image.addEventListener('error',()=>{
+    console.error(`Failed to load image file "${source}".`,image.error||'Image request failed');
+  },{once:true});
   image.addEventListener('load',()=>{
     requestAnimationFrame(()=>image.classList.add('visible'));
   },{once:true});
@@ -134,16 +121,22 @@ async function deriveImageKey(password){
 }
 
 async function decryptImage(key,index){
-  const response=await fetch(images[index].encrypted);
-  if(!response.ok) throw new Error(`Unable to load encrypted image ${index+1}: ${response.status}`);
-  const data=new Uint8Array(await response.arrayBuffer());
-  if(data.length<=28) throw new Error(`Encrypted image ${index+1} is incomplete`);
-  const plaintext=await crypto.subtle.decrypt(
-    {name:'AES-GCM',iv:data.subarray(0,12),tagLength:128},
-    key,
-    data.subarray(12)
-  );
-  return URL.createObjectURL(new Blob([plaintext],{type:'image/jpeg'}));
+  const path=images[index].encrypted;
+  try{
+    const response=await fetch(path);
+    if(!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`);
+    const data=new Uint8Array(await response.arrayBuffer());
+    if(data.length<=28) throw new Error('Encrypted file is incomplete');
+    const plaintext=await crypto.subtle.decrypt(
+      {name:'AES-GCM',iv:data.subarray(0,12),tagLength:128},
+      key,
+      data.subarray(12)
+    );
+    return URL.createObjectURL(new Blob([plaintext],{type:'image/jpeg'}));
+  }catch(error){
+    console.error(`Failed to load or decrypt "${path}".`,error);
+    throw error;
+  }
 }
 
 async function removeCurrentSlide(){
@@ -170,7 +163,11 @@ async function playSlideshow(key,firstBlobUrl){
       if(currentSlide.complete&&currentSlide.naturalWidth) resolve();
       else{
         currentSlide.addEventListener('load',resolve,{once:true});
-        currentSlide.addEventListener('error',()=>reject(new Error('Decrypted image could not be displayed')),{once:true});
+        currentSlide.addEventListener('error',()=>{
+          const error=new Error(`Decrypted image "${images[index].encrypted}" could not be displayed`);
+          console.error(error.message,currentSlide.error||'Blob URL image request failed');
+          reject(error);
+        },{once:true});
       }
     });
     requestAnimationFrame(()=>currentSlide?.classList.add('visible'));
