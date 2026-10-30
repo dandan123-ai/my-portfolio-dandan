@@ -12,7 +12,23 @@ nav{padding:24px 8%;display:flex;justify-content:space-between;align-items:cente
 nav div:last-child{display:flex;gap:22px}
 nav a{color:#b9c4e8;text-decoration:none}
 nav a:hover{color:#67e8f9}
-.reflection{max-width:900px;margin:25vh auto 0;padding:0 24px;color:#b8b8b8;font-size:clamp(20px,3vw,30px);line-height:1.8;text-align:center;text-shadow:0 2px 8px #000,0 0 16px #000}
+.reflection{max-width:900px;margin:max(12px,calc(20vh - 80px)) auto 18px;padding:0 24px;color:#b8b8b8;font-size:clamp(20px,3vw,30px);line-height:1.8;text-align:center;text-shadow:0 2px 8px #000,0 0 16px #000}
+.gallery{position:relative;width:min(900px,calc(100vw - 40px));height:min(56vh,620px);min-height:220px;margin:0 auto;display:grid;place-items:center;overflow:hidden}
+.slide{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transform:scale(.08);filter:blur(22px);transition:opacity .8s ease,transform 1.2s cubic-bezier(.2,.72,.25,1),filter 1.2s ease}
+.slide.visible{opacity:1;transform:scale(1)}
+.slide.preview.visible{opacity:.72;filter:blur(14px)}
+.slide.clear.visible{filter:blur(0)}
+.slide.leaving{opacity:0;transform:scale(.84);filter:blur(18px)}
+#gallery-status{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);margin:0;color:#b8b8b8;font-size:14px;text-shadow:0 2px 8px #000}
+#unlock-panel{position:fixed;left:18px;bottom:18px;z-index:5;padding:9px 11px;border:1px solid #ffffff20;border-radius:8px;background:rgba(125,125,125,.24);color:#c4c4c4;backdrop-filter:blur(8px)}
+#unlock-panel button,#unlock-panel input{font:inherit;color:#d0d0d0}
+#unlock-trigger,#unlock-submit{border:1px solid #ffffff24;border-radius:5px;background:rgba(140,140,140,.18);padding:6px 9px;cursor:pointer}
+#unlock-form{display:flex;gap:6px;align-items:center}
+#unlock-form[hidden]{display:none}
+#unlock-password{width:128px;border:1px solid #ffffff30;border-radius:5px;background:rgba(0,0,0,.38);padding:6px 8px;outline:none}
+#unlock-password::placeholder{color:#999}
+#unlock-error{margin:7px 0 0;color:#c2c2c2;font-size:12px}
+#unlock-error[hidden]{display:none}
 @media(max-width:600px){nav{padding:20px 6%}nav div:last-child{gap:14px}}
 </style>
 </head>
@@ -23,6 +39,207 @@ nav a:hover{color:#67e8f9}
 </nav>
 <main>
   <p class="reflection">这些图片，是我20岁的情愫，最美好，最动人，不知十年后还会有当初悸动否</p>
+  <section class="gallery" id="gallery" aria-label="图片轮播"></section>
 </main>
+<aside id="unlock-panel">
+  <button id="unlock-trigger" type="button">解锁图片</button>
+  <form id="unlock-form" hidden>
+    <input id="unlock-password" type="password" inputmode="numeric" autocomplete="current-password" placeholder="输入密码" aria-label="输入密码" required>
+    <button id="unlock-submit" type="submit">确认</button>
+  </form>
+  <p id="unlock-error" role="status" hidden></p>
+</aside>
+<script>
+const imageNames=[
+  '152991718146e091d109cec0a660b97f.jpg',
+  '1b4a1f15f17c967f017e84b689fa61d1.jpg',
+  '256396a80a2280706b6d1a426e9cdf06.jpg',
+  '2c4359ec3ba191de6c0e6d85ba7b4697.jpg',
+  '37c96190fc4dc84e32e30d3e59d034f2.jpg',
+  '5ad307c437ce046b600bf8e77d2ba2ca.jpg',
+  '69a10dad4f78e3ad333ca2256cc88804.jpg',
+  '69b6019f8b4a0ce7f5baef0a5623d7e5.jpg',
+  '87d4230eac938fbd25ad71c7cb92fb13.jpg',
+  'a5d21ac101465c73c1cfd1b8951b0aca.jpg',
+  'bb1996457b18d4c6e79d6c6222532380.jpg',
+  'c08697adf61151585d51f641d8aabfa9.jpg',
+  'c93504572ee36df4f831821a7b419f32.jpg',
+  'e9dac5d228542a429f22473f4ca2c299.jpg',
+  'ec293f29179bb6d7d06d38955c4c9ad0.jpg',
+  'f4e30b551da92982d48067f46157d066.jpg'
+];
+const imageDirectory='111/图片22/';
+const images=imageNames.map(name=>({
+  encrypted:`${imageDirectory}${name}.enc`,
+  preview:`${imageDirectory}previews/${name}.preview.jpg`
+}));
+const salt=Uint8Array.from(atob('+k3qyafomgz8++P2uq2I5Q=='),character=>character.charCodeAt(0));
+const gallery=document.getElementById('gallery');
+const unlockPanel=document.getElementById('unlock-panel');
+const unlockTrigger=document.getElementById('unlock-trigger');
+const unlockForm=document.getElementById('unlock-form');
+const passwordInput=document.getElementById('unlock-password');
+const unlockError=document.getElementById('unlock-error');
+let currentSlide=null;
+let currentBlobUrl=null;
+let previewIndex=0;
+let previewTimer=0;
+let unlocked=false;
+
+function wait(milliseconds){
+  return new Promise(resolve=>window.setTimeout(resolve,milliseconds));
+}
+
+function makeSlide(source,type){
+  const image=document.createElement('img');
+  image.className=`slide ${type}`;
+  image.alt='';
+  image.draggable=false;
+  gallery.append(image);
+  image.addEventListener('load',()=>{
+    requestAnimationFrame(()=>image.classList.add('visible'));
+  },{once:true});
+  image.src=source;
+  return image;
+}
+
+function showPreview(){
+  if(unlocked) return;
+  currentSlide=makeSlide(images[previewIndex].preview,'preview');
+  previewTimer=window.setTimeout(async()=>{
+    const previous=currentSlide;
+    if(previous){
+      previous.classList.remove('visible');
+      previous.classList.add('leaving');
+      await wait(850);
+      previous.remove();
+    }
+    if(unlocked) return;
+    previewIndex=(previewIndex+1)%images.length;
+    showPreview();
+  },3500);
+}
+
+async function deriveImageKey(password){
+  const passwordMaterial=await crypto.subtle.importKey(
+    'raw',new TextEncoder().encode(password),'PBKDF2',false,['deriveKey']
+  );
+  return crypto.subtle.deriveKey(
+    {name:'PBKDF2',salt,iterations:310000,hash:'SHA-256'},
+    passwordMaterial,
+    {name:'AES-GCM',length:256},
+    false,
+    ['decrypt']
+  );
+}
+
+async function decryptImage(key,index){
+  const response=await fetch(images[index].encrypted);
+  if(!response.ok) throw new Error(`Unable to load encrypted image ${index+1}: ${response.status}`);
+  const data=new Uint8Array(await response.arrayBuffer());
+  if(data.length<=28) throw new Error(`Encrypted image ${index+1} is incomplete`);
+  const plaintext=await crypto.subtle.decrypt(
+    {name:'AES-GCM',iv:data.subarray(0,12),tagLength:128},
+    key,
+    data.subarray(12)
+  );
+  return URL.createObjectURL(new Blob([plaintext],{type:'image/jpeg'}));
+}
+
+async function removeCurrentSlide(){
+  if(!currentSlide) return;
+  const slide=currentSlide;
+  const blobUrl=currentBlobUrl;
+  currentSlide=null;
+  currentBlobUrl=null;
+  slide.classList.remove('visible');
+  slide.classList.add('leaving');
+  await wait(850);
+  slide.remove();
+  if(blobUrl) URL.revokeObjectURL(blobUrl);
+}
+
+async function playSlideshow(key,firstBlobUrl){
+  let index=0;
+  let nextBlobUrl=firstBlobUrl;
+  await removeCurrentSlide();
+  while(unlocked){
+    currentBlobUrl=nextBlobUrl;
+    currentSlide=makeSlide(nextBlobUrl,'clear');
+    await new Promise((resolve,reject)=>{
+      if(currentSlide.complete&&currentSlide.naturalWidth) resolve();
+      else{
+        currentSlide.addEventListener('load',resolve,{once:true});
+        currentSlide.addEventListener('error',()=>reject(new Error('Decrypted image could not be displayed')),{once:true});
+      }
+    });
+    requestAnimationFrame(()=>currentSlide?.classList.add('visible'));
+    await wait(3500);
+    await removeCurrentSlide();
+    if(!unlocked) break;
+    index=(index+1)%images.length;
+    try{
+      nextBlobUrl=await decryptImage(key,index);
+    }catch(error){
+      console.error('Image slideshow stopped.',error);
+      unlockError.textContent='图片加载失败，请刷新页面后重试。';
+      unlockError.hidden=false;
+      unlockPanel.hidden=false;
+      unlockForm.hidden=true;
+      unlockTrigger.textContent='重新解锁';
+      unlockTrigger.hidden=false;
+      break;
+    }
+  }
+}
+
+unlockTrigger.addEventListener('click',()=>{
+  unlockTrigger.hidden=true;
+  unlockForm.hidden=false;
+  passwordInput.focus();
+});
+
+unlockForm.addEventListener('submit',async event=>{
+  event.preventDefault();
+  unlockError.hidden=true;
+  unlockForm.querySelector('button').disabled=true;
+  try{
+    if(!window.crypto?.subtle) throw new Error('Web Crypto is unavailable');
+    const key=await deriveImageKey(passwordInput.value);
+    const firstBlobUrl=await decryptImage(key,0);
+    unlocked=true;
+    window.clearTimeout(previewTimer);
+    unlockPanel.hidden=true;
+    playSlideshow(key,firstBlobUrl).catch(error=>{
+      console.error('Image slideshow stopped.',error);
+      unlockError.textContent='图片播放失败，请重新解锁后重试。';
+      unlockError.hidden=false;
+      unlockPanel.hidden=false;
+      unlockForm.hidden=true;
+      unlockTrigger.textContent='重新解锁';
+      unlockTrigger.hidden=false;
+    });
+  }catch(error){
+    if(error.name==='OperationError'){
+      unlockError.textContent='密码错误，请重试。';
+    }else{
+      console.error('Unable to unlock images.',error);
+      unlockError.textContent='暂时无法解锁图片，请检查浏览器连接后重试。';
+    }
+    unlockError.hidden=false;
+  }finally{
+    unlockForm.querySelector('button').disabled=false;
+    passwordInput.value='';
+    if(!unlocked) passwordInput.focus();
+  }
+});
+
+window.addEventListener('pagehide',()=>{
+  window.clearTimeout(previewTimer);
+  if(currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+});
+
+showPreview();
+</script>
 </body>
 </html>
