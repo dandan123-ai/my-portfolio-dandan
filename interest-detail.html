@@ -74,6 +74,14 @@ function wait(milliseconds){
   return new Promise(resolve=>window.setTimeout(resolve,milliseconds));
 }
 
+function reportImageFailure(stage,error,path=''){
+  console.error(
+    `[interest-detail] ${stage} failed${path?` for "${path}"`:''}:`,
+    error,
+    {name:error?.name||'Error',message:error?.message||String(error)}
+  );
+}
+
 function makeSlide(source,type){
   const image=document.createElement('img');
   image.className=`slide ${type}`;
@@ -81,7 +89,7 @@ function makeSlide(source,type){
   image.draggable=false;
   gallery.append(image);
   image.addEventListener('error',()=>{
-    console.error(`Failed to load image file "${source}".`,image.error||'Image request failed');
+    reportImageFailure('image display',new Error(`Image request failed (naturalWidth=${image.naturalWidth})`),source);
   },{once:true});
   image.addEventListener('load',()=>{
     requestAnimationFrame(()=>image.classList.add('visible'));
@@ -108,34 +116,79 @@ function showPreview(){
 }
 
 async function deriveImageKey(password){
-  const passwordMaterial=await crypto.subtle.importKey(
-    'raw',new TextEncoder().encode(password),'PBKDF2',false,['deriveKey']
-  );
-  return crypto.subtle.deriveKey(
-    {name:'PBKDF2',salt,iterations:310000,hash:'SHA-256'},
-    passwordMaterial,
-    {name:'AES-GCM',length:256},
-    false,
-    ['decrypt']
-  );
+  try{
+    const passwordMaterial=await window.crypto.subtle.importKey(
+      'raw',new TextEncoder().encode(password),'PBKDF2',false,['deriveKey']
+    );
+    const key=await window.crypto.subtle.deriveKey(
+      {name:'PBKDF2',salt,iterations:310000,hash:'SHA-256'},
+      passwordMaterial,
+      {name:'AES-GCM',length:256},
+      false,
+      ['decrypt']
+    );
+    console.info('[interest-detail] password key derivation succeeded (PBKDF2-SHA-256, 310000 iterations).');
+    return key;
+  }catch(error){
+    reportImageFailure('password key derivation',error);
+    throw Object.assign(new Error(`Password key derivation failed: ${error.message}`,{cause:error}),{stage:'password key derivation'});
+  }
 }
 
 async function decryptImage(key,index){
   const path=images[index].encrypted;
+  let response;
   try{
-    const response=await fetch(path);
-    if(!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`);
-    const data=new Uint8Array(await response.arrayBuffer());
-    if(data.length<=28) throw new Error('Encrypted file is incomplete');
-    const plaintext=await crypto.subtle.decrypt(
+    response=await fetch(path);
+  }catch(error){
+    reportImageFailure('fetch',error,path);
+    throw Object.assign(new Error(`Fetch failed for ${path}: ${error.message}`,{cause:error}),{stage:'fetch'});
+  }
+  if(!response.ok){
+    const error=new Error(`HTTP ${response.status} ${response.statusText}`);
+    reportImageFailure('fetch',error,path);
+    throw Object.assign(error,{stage:'fetch'});
+  }
+
+  let data;
+  try{
+    data=new Uint8Array(await response.arrayBuffer());
+    if(data.length<=28) throw new Error(`Binary file is incomplete (${data.length} bytes)`);
+    console.info(`[interest-detail] "${path}" fetched as binary (${data.length} bytes; 12-byte IV + ciphertext + 16-byte tag; not Base64).`);
+  }catch(error){
+    reportImageFailure('binary response read',error,path);
+    throw Object.assign(new Error(`Could not read binary response for ${path}: ${error.message}`,{cause:error}),{stage:'binary response read'});
+  }
+
+  let plaintext;
+  try{
+    plaintext=await window.crypto.subtle.decrypt(
       {name:'AES-GCM',iv:data.subarray(0,12),tagLength:128},
       key,
       data.subarray(12)
     );
-    return URL.createObjectURL(new Blob([plaintext],{type:'image/jpeg'}));
+    console.info(`[interest-detail] AES-GCM decryption succeeded for "${path}" (${plaintext.byteLength} bytes).`);
   }catch(error){
-    console.error(`Failed to load or decrypt "${path}".`,error);
-    throw error;
+    reportImageFailure('AES-GCM decryption',error,path);
+    throw Object.assign(new Error(`AES-GCM decryption failed for ${path}: ${error.message}`,{cause:error}),{stage:'AES-GCM decryption'});
+  }
+
+  let blob;
+  try{
+    blob=new Blob([plaintext],{type:'image/jpeg'});
+    console.info(`[interest-detail] JPEG Blob created for "${path}" (${blob.size} bytes).`);
+  }catch(error){
+    reportImageFailure('Blob creation',error,path);
+    throw Object.assign(new Error(`Blob creation failed for ${path}: ${error.message}`,{cause:error}),{stage:'Blob creation'});
+  }
+
+  try{
+    const blobUrl=URL.createObjectURL(blob);
+    console.info(`[interest-detail] Blob URL created for "${path}".`);
+    return blobUrl;
+  }catch(error){
+    reportImageFailure('Blob URL creation',error,path);
+    throw Object.assign(new Error(`Blob URL creation failed for ${path}: ${error.message}`,{cause:error}),{stage:'Blob URL creation'});
   }
 }
 
@@ -165,7 +218,7 @@ async function playSlideshow(key,firstBlobUrl){
         currentSlide.addEventListener('load',resolve,{once:true});
         currentSlide.addEventListener('error',()=>{
           const error=new Error(`Decrypted image "${images[index].encrypted}" could not be displayed`);
-          console.error(error.message,currentSlide.error||'Blob URL image request failed');
+          reportImageFailure('Blob image display',error,images[index].encrypted);
           reject(error);
         },{once:true});
       }
@@ -178,7 +231,7 @@ async function playSlideshow(key,firstBlobUrl){
     try{
       nextBlobUrl=await decryptImage(key,index);
     }catch(error){
-      console.error('Image slideshow stopped.',error);
+      reportImageFailure('slideshow',error,images[index].encrypted);
       unlockError.textContent='图片加载失败，请刷新页面后重试。';
       unlockError.hidden=false;
       unlockPanel.hidden=false;
@@ -201,14 +254,19 @@ unlockForm.addEventListener('submit',async event=>{
   unlockError.hidden=true;
   unlockForm.querySelector('button').disabled=true;
   try{
-    if(!window.crypto?.subtle) throw new Error('Web Crypto is unavailable');
+    if(!window.crypto?.subtle){
+      const error=new Error('Web Crypto API is unavailable. Use HTTPS or localhost.');
+      reportImageFailure('Web Crypto availability',error);
+      throw Object.assign(error,{stage:'Web Crypto availability'});
+    }
     const key=await deriveImageKey(passwordInput.value);
     const firstBlobUrl=await decryptImage(key,0);
     unlocked=true;
     window.clearTimeout(previewTimer);
     unlockPanel.hidden=true;
+    console.info(`[interest-detail] First image decrypted successfully (${images[0].encrypted}); starting slideshow.`);
     playSlideshow(key,firstBlobUrl).catch(error=>{
-      console.error('Image slideshow stopped.',error);
+      reportImageFailure('slideshow',error,images[0].encrypted);
       unlockError.textContent='图片播放失败，请重新解锁后重试。';
       unlockError.hidden=false;
       unlockPanel.hidden=false;
@@ -217,11 +275,11 @@ unlockForm.addEventListener('submit',async event=>{
       unlockTrigger.hidden=false;
     });
   }catch(error){
-    if(error.name==='OperationError'){
+    if(error.stage==='AES-GCM decryption'&&error.cause?.name==='OperationError'){
       unlockError.textContent='密码错误，请重试。';
     }else{
-      console.error('Unable to unlock images.',error);
-      unlockError.textContent='暂时无法解锁图片，请检查浏览器连接后重试。';
+      reportImageFailure('unlock',error);
+      unlockError.textContent=`图片解锁失败（${error.stage||error.name}），请查看控制台详情。`;
     }
     unlockError.hidden=false;
   }finally{
